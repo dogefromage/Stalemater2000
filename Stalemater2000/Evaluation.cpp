@@ -72,6 +72,9 @@ Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
             bb ^= 1ULL << i; // unset bit
         }
     }
+    
+    eval *= 150;
+    eval /= 100;
 
     return eval;
 }
@@ -80,7 +83,7 @@ Score Evaluation::evaluateMobility(const Board& board)
 {
     Score mob = countBits(board.UnsafeForWhite);
     mob -= countBits(board.UnsafeForBlack);
-    return (10 * mob);
+    return (20 * mob);
 }
 
 Score Evaluation::evaluatePawnStructure(const Board& board, int endgameFactor, bool isWhite)

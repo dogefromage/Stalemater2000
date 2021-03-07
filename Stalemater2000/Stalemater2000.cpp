@@ -191,24 +191,32 @@ void manageTime(long long remainingTime)
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    long long waitTime = remainingTime / 10LL;
+    if (waitTime > 10000LL)
+    {
+        waitTime = 8000LL + (std::rand() % 4000LL);
+    }
+
     while (true)
     {
         auto stop = std::chrono::high_resolution_clock::now();
         long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
         if (!Computer::Working)
-            return;
+        {
+            break;
+        }
 
-        if (min((int)(remainingTime / 10), 10000) < duration) // % of all the time
+        if (duration > waitTime) // % of all the time
         {
             LOG("TIME MANAGER HAS HALTED SEARCH BECAUSE TIME USED UP");
             LOG("Remaining time: " + to_string(remainingTime) + ", search duration: " + to_string(duration));
             Computer::Working = false;
 
-            return;
+            break;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -216,6 +224,9 @@ bool e_debug = false;
 
 int main()
 {
+    cout.setf(ios::unitbuf); // most important line in the whole engine
+    // stolen from https://github.com/KierenP/Halogen/blob/master/Halogen/src/main.cpp you saved my life
+
     cout << ENGINENAME << " v1.0" << endl;
 
     InitZobrist();
@@ -224,36 +235,30 @@ int main()
 
     std::srand(time(0));
 
-    /*std::ofstream myfile;
-    myfile.open("C:/Users/seb/source/repos/Stalemater2000/x64/Release/log.txt", std::ofstream::out);
-    myfile << "uci log:\n\n";
-    myfile.close();*/
-
     string command;
     AsyncGetline ag;
 
     while (true)
     {
-        getline(cin, command);
-
-        /*command = ag.GetLine();
+        command = ag.GetLine();
         if (command.empty())
         {
-            if (messageOut.length() > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+            std::string computerMsg = Computer::GetMessage();
+            if (computerMsg.length() > 0)
             {
-                std::cout << messageOut;
-                messageOut = "";
+                cout << computerMsg;
             }
 
             continue;
-        }*/
+        }
 
         vector<string> arguments;
         tokenize(command, ' ', arguments);
 
         if (arguments.size() > 0)
         {
-
             if (arguments[0] == "stop")
             {
                 Computer::Working = false;

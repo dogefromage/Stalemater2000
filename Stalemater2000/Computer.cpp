@@ -4,6 +4,8 @@
 #include <string>
 #include <algorithm>
 #include <tuple>
+#include <queue>
+#include <mutex>
 
 #define U64 unsigned long long
 
@@ -18,6 +20,36 @@ static unsigned long long branchesPruned = 0;
 std::unordered_map<U64, Position> Computer::PositionTable;
 
 extern std::string messageOut = "";
+
+std::mutex messageLock;
+std::queue<std::string> Computer::messages;
+
+std::string Computer::GetMessage()
+{
+    messageLock.lock();
+
+    std::string msg;
+
+    if (messages.empty())
+    {
+        msg = "";
+    }
+    else
+    {
+        msg = messages.front();
+        messages.pop();
+    }
+
+    messageLock.unlock();
+    return msg;
+}
+
+void Computer::AddMessage(std::string msg)
+{
+    messageLock.lock();
+    messages.push(msg);
+    messageLock.unlock();
+}
 
 void Computer::Init()
 {
@@ -170,29 +202,31 @@ void Computer::ChooseMove(Board board, int maxDepth)
         if (!Working)
             break;
 
+        std::string info = "";
+
         // PRINT INFO
         auto posEntry = PositionTable.find(board.Zobrist);
         if (posEntry != PositionTable.end())
         {
             const Position& pos = posEntry->second;
     
-            std::cout << "info depth " << depth << " seldepth " << depth;
+            info +=  "info depth " + std::to_string(depth);
             Score score = pos.score;
             if (board.SideToMove == BLACK_TO_MOVE)
                 score = -score;
     
-            std::cout << " score cp " << pos.score;
+            info += " score cp " + std::to_string(pos.score);
 
             // LIST PV
             if (pos.bestMove != 0)
             {
                 bestMove = pos.bestMove;
                 int m = bestMove;
-                std::cout << " pv ";
+                info += " pv ";
                 Board pvBoard = board;
                 while (m != 0)
                 {
-                    std::cout << Board::MoveToText(m, true) << " ";
+                    info += Board::MoveToText(m, true) + " ";
                     pvBoard = pvBoard.Move(m);
                     if (!pvBoard.GetBoardStatus())
                         break;
@@ -202,13 +236,16 @@ void Computer::ChooseMove(Board board, int maxDepth)
                      
                     m = nextEntry->second.bestMove;
                 }
-                std::cout << "\n";
             }
 
             LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
             LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
             LOG("MATES FOUND: " + std::to_string(matesFound));
             LOG("BRANCHES PRUNED: " + std::to_string(branchesPruned));
+
+            info += "\n";
+            
+            AddMessage(info);
         }
     
         currentSearch++;
@@ -216,7 +253,7 @@ void Computer::ChooseMove(Board board, int maxDepth)
     
     if (bestMove != 0)
     {
-        std::cout << "bestmove " << Board::MoveToText(bestMove, true) << "\n";
+        AddMessage("bestmove " + Board::MoveToText(bestMove, true) + "\n");
     }
     
     Init();

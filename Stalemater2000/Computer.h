@@ -3,6 +3,7 @@
 #include <chrono>
 #include <time.h>
 #include <unordered_map>
+#include <queue>
 
 #include "Board.h"
 #include "Debug.h"
@@ -10,8 +11,6 @@
 #include "Position.h"
 
 #define U64 unsigned long long
-
-extern std::string messageOut;
 
 class Computer
 {
@@ -21,6 +20,10 @@ public:
 
     static void Init();
 
+    static std::string GetMessage();
+
+    static void AddMessage(std::string msg);
+
     static void ChooseMove(Board board, int maxDepth);
 
     static void PerftAnalysis(Board board, int depth);
@@ -28,6 +31,8 @@ public:
     static void ZobristTest(Board board, int depth);
 
 private:
+    static std::queue<std::string> messages;
+
     static int randomMove(Board& board);
 
     static Score search(const Board& board, int depth, Score alpha, Score beta);
