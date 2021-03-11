@@ -214,6 +214,9 @@ Score Computer::search(const Board& board, int currDepth, int maxDepth, Score al
 
         if (score > maxScore)
         {
+            maxScore = score;
+            bestMove = move;
+
             if (score > alpha)
             {
                 alpha = score;
@@ -224,9 +227,6 @@ Score Computer::search(const Board& board, int currDepth, int maxDepth, Score al
                     break;
                 }
             }
-
-            maxScore = score;
-            bestMove = move;
         }
     }
 
@@ -294,6 +294,9 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
 
         if (score > maxScore)
         {
+            maxScore = score;
+            bestMove = move;
+
             if (score > alpha)
             {
                 if (alpha >= beta)
@@ -303,24 +306,7 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
                     break;
                 }
             }
-
-            maxScore = score;
-            bestMove = move;
         }
-
-        //if (score > maxScore)
-        //{
-        //    maxScore = score;
-        //    bestMove = move;
-
-        //    alpha = std::max(alpha, score);
-        //    if (alpha >= beta)
-        //    {
-        //        // prune branch
-        //        branchesPruned++;
-        //        break;
-        //    }
-        //}
     }
 
     if (bestMove == 0) // no move found
