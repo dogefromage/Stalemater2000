@@ -4,7 +4,7 @@
 #define U64 unsigned long long
 
 #define Score short
-#define SCORE_NONE 32767
+constexpr short SCORE_CHECKMATE = 30000;
 
 // SOME VALUES AND TABLES //https://www.chessprogramming.org/Simplified_Evaluation_Function
 

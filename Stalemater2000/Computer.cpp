@@ -11,15 +11,8 @@
 
 bool Computer::Working = false;
 
-static short currentSearch = 0;
-static unsigned long long nodesEvaluated = 0;
-static unsigned long long transpositionsSkipped = 0;
-static unsigned long long matesFound = 0;
-static unsigned long long branchesPruned = 0;
-
-std::unordered_map<U64, Position> Computer::PositionTable;
-
-extern std::string messageOut = "";
+std::unordered_map<U64, int> Computer::BestMoveTable;
+std::unordered_map<U64, Score> Computer::PositionTable;
 
 std::mutex messageLock;
 std::queue<std::string> Computer::messages;
@@ -46,263 +39,194 @@ std::string Computer::GetMessage()
 
 void Computer::AddMessage(std::string msg)
 {
-    messageLock.lock();
+    /*messageLock.lock();
     messages.push(msg);
-    messageLock.unlock();
+    messageLock.unlock();*/
+    std::cout << msg;
 }
 
-void Computer::Init()
-{
-    PositionTable.clear();
-    currentSearch = 0;
-}
-
-//bool compareBoardsMaximizing(const std::tuple<Score, Board, int>& left,
-//                             const std::tuple<Score, Board, int>& right)
-//{
-//    const Score &scoreLeft = std::get<0>(left);
-//    const Score &scoreRight = std::get<0>(right);
-//    if (scoreLeft == SCORE_NONE)
-//        return false;
-//
-//    if (scoreRight == SCORE_NONE)
-//        return true;
-//
-//    return (scoreLeft > scoreRight);
-//}
-//
-//bool compareBoardsMinimizing(const std::tuple<Score, Board, int>& left,
-//    const std::tuple<Score, Board, int>& right)
-//{
-//    const Score& scoreLeft = std::get<0>(left);
-//    const Score& scoreRight = std::get<0>(right);
-//    if (scoreLeft == SCORE_NONE)
-//        return false;
-//
-//    if (scoreRight == SCORE_NONE)
-//        return true;
-//
-//    return (scoreLeft < scoreRight);
-//}
-//
-//Score Computer::search(const Board& board, int depth, Score alpha, Score beta)
-//{
-//    if (depth == 0)
-//    {
-//        Score score = Evaluation::evaluate(board);
-//        PositionTable[board.Zobrist] = Position(score, 0, currentSearch);
-//        nodesEvaluated++;
-//        return score;
-//    }
-//
-//    Score maxScore = -0xFFF; // not INT_MIN because negating INT_MIN will overflow :(
-//    int bestMove = 0;
-//
-//    // moves
-//    std::vector<int> pseudoMoves;
-//    pseudoMoves.reserve(40);
-//    board.GeneratePseudoMoves(pseudoMoves);
-//
-//    // score, board, move that led to it
-//    std::vector<std::tuple<Score, Board, int>> boardTuples;
-//    boardTuples.reserve(pseudoMoves.size());
-//
-//    // calculate all boards
-//    for (int move : pseudoMoves)
-//    {
-//        const Board &newBoard = board.Move(move);
-//        if (!board.GetBoardStatus())
-//            continue; // illegal
-//
-//        auto boardEntry = Computer::PositionTable.find(newBoard.Zobrist);
-//        Score score = SCORE_NONE;
-//        if (boardEntry != Computer::PositionTable.end())
-//        {
-//            score = boardEntry->second.score;
-//            if (boardEntry->second.searchID == currentSearch)
-//            {
-//                // tranposition! this position was already searched during this iteration
-//                transpositionsSkipped++;
-//                //continue; 
-//            }
-//        }
-//
-//        boardTuples.push_back({score, newBoard, move});
-//    }
-//
-//    if (board.SideToMove == WHITE_TO_MOVE)
-//        std::sort(boardTuples.begin(), boardTuples.end(), compareBoardsMaximizing);
-//    else
-//        std::sort(boardTuples.begin(), boardTuples.end(), compareBoardsMinimizing);
-//
-//    for (auto boardTuple : boardTuples)
-//    {
-//        Board& nextBoard = std::get<1>(boardTuple);
-//
-//        Score score = -search(nextBoard, depth - 1, -beta, -alpha);
-//
-//        if (!Computer::Working) // break out if aborted
-//        {
-//            if (score > maxScore)
-//            {
-//                maxScore = score;
-//                bestMove = std::get<2>(boardTuple);
-//            }
-//
-//            break;
-//        }
-//
-//        if (score > maxScore)
-//        {
-//            maxScore = score;
-//            bestMove = std::get<2>(boardTuple);
-//
-//            alpha = std::max(alpha, score);
-//            if (alpha >= beta)
-//            {
-//                branchesPruned++;
-//                break; // prune branch
-//            }
-//        }
-//    }
-//
-//    if (bestMove == 0) // no moves -> some sort of mate
-//    {
-//        matesFound++;
-//        // make sure no stalemate
-//        if (board.SideToMove == WHITE_TO_MOVE && !(board.Checks & CHECK_WHITE))
-//            maxScore = 0;
-//        if (board.SideToMove == BLACK_TO_MOVE && !(board.Checks & CHECK_BLACK))
-//            maxScore = 0;
-//    }
-//
-//    PositionTable[board.Zobrist] = Position(maxScore, bestMove, currentSearch);
-//
-//    return maxScore;
-//}
+static unsigned long long nodesEvaluated = 0;
+static unsigned long long transpositionsSkipped = 0;
+static unsigned long long matesFound = 0;
+static unsigned long long branchesPruned = 0;
 
 void Computer::ChooseMove(Board board, int maxDepth)
 {
     Working = true;
         
-    int bestMove = 0;
-    
     nodesEvaluated = 0;
     transpositionsSkipped = 0;
     matesFound = 0;
     branchesPruned = 0;
 
-    std::cout << "\n";
-    
+    auto start = std::chrono::high_resolution_clock::now();
+
     for (int depth = 1; depth <= maxDepth; depth++)
-    //for (int depth = maxDepth; depth <= maxDepth; depth++)
     {
-        search(board, depth, -0x6FFF, 0x6FFF);
+        Score score = search(board, 0, depth, -0x6FFF, 0x6FFF);
+
+        auto stop = std::chrono::high_resolution_clock::now();
+        long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
         if (!Working)
             break;
 
         std::string info = "";
-
-        // PRINT INFO
-        auto posEntry = PositionTable.find(board.Zobrist);
-        if (posEntry != PositionTable.end())
+        info +=  "info depth " + std::to_string(depth);
+        
+        bool seesMate = false;
+        if (score > SCORE_CHECKMATE - 50)
         {
-            const Position& pos = posEntry->second;
-    
-            info +=  "info depth " + std::to_string(depth);
-            Score score = pos.score;
+            info += " score mate " + std::to_string(SCORE_CHECKMATE - score);
+            seesMate = true;
+        }
+        else if (score < -SCORE_CHECKMATE + 50)
+        {
+            info += " score mate " + std::to_string(-SCORE_CHECKMATE - score + 1);
+            seesMate = true;
+        }
+        else
+        {
             if (board.SideToMove == BLACK_TO_MOVE)
                 score = -score;
-    
-            info += " score cp " + std::to_string(pos.score);
-
-            // LIST PV
-            if (pos.bestMove != 0)
-            {
-                bestMove = pos.bestMove;
-                int m = bestMove;
-                info += " pv ";
-                Board pvBoard = board;
-                while (m != 0)
-                {
-                    info += Board::MoveToText(m, true) + " ";
-                    pvBoard = pvBoard.Move(m);
-                    if (!pvBoard.GetBoardStatus())
-                        break;
-                    auto nextEntry = PositionTable.find(pvBoard.Zobrist);
-                    if (nextEntry == PositionTable.end())
-                        break;
-                     
-                    m = nextEntry->second.bestMove;
-                }
-            }
-
-            LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
-            LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
-            LOG("MATES FOUND: " + std::to_string(matesFound));
-            LOG("BRANCHES PRUNED: " + std::to_string(branchesPruned));
-
-            info += "\n";
-            
-            AddMessage(info);
+            info += " score cp " + std::to_string(score);
         }
-    
-        currentSearch++;
+
+        info += " nodes " + std::to_string(nodesEvaluated);
+        
+        if (duration > 0)
+        {
+            info += " nps " + std::to_string(nodesEvaluated * 1000 / duration);
+        }
+
+        info += " pv ";
+        Board pvBoard = board;
+
+        for (int pvDepth = 0; pvDepth < depth; pvDepth++)
+        {
+            auto entry = BestMoveTable.find(pvBoard.Zobrist);
+            if (entry == BestMoveTable.end())
+                break;
+            pvBoard = pvBoard.Move(entry->second);
+            if (!pvBoard.GetBoardStatus())
+                break;
+            info += Board::MoveToText(entry->second, true) + " ";
+        }
+
+        info += "\n";
+        AddMessage(info);
+        
+        LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
+        LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
+        LOG("MATES FOUND: " + std::to_string(matesFound));
+        LOG("BRANCHES PRUNED: " + std::to_string(branchesPruned));
+
+        PositionTable.clear();
+
+        if (seesMate)
+        {
+            break;
+        }
     }
-    
-    if (bestMove != 0)
+
+    auto entry = BestMoveTable.find(board.Zobrist);
+    if (entry != BestMoveTable.end())
     {
-        AddMessage("bestmove " + Board::MoveToText(bestMove, true) + "\n");
+        Board testBoard = board.Move(entry->second);
+        if (testBoard.GetBoardStatus())
+        {
+            AddMessage("bestmove " + Board::MoveToText(entry->second, true) + "\n");
+        }
     }
-    
-    Init();
+
+    PositionTable.clear();
+    BestMoveTable.clear();
     
     Working = false;
 }
 
-Score Computer::search(const Board& board, int depth, Score alpha, Score beta)
+Score Computer::search(const Board& board, int currDepth, int maxDepth, Score alpha, Score beta)
 {
-    if (depth == 0)
+    if (currDepth == maxDepth)
     {
-        Score score = Evaluation::evaluate(board);
+        //return quiescence(board, alpha, beta);
+
+        Score score = Evaluation::evaluate(board); // evaluate, since no more captures
         if (board.SideToMove == BLACK_TO_MOVE)
             score = -score;
-        PositionTable[board.Zobrist] = Position(score, 0, currentSearch);
         nodesEvaluated++;
         return score;
     }
 
-    Score maxScore = -0x6FFF;
+    Score maxScore = -SCORE_CHECKMATE;
     int bestMove = 0;
     std::vector<MOVE> pseudoMoves;
     board.GeneratePseudoMoves(pseudoMoves);
     Board nextBoard;
-    for (MOVE move : pseudoMoves)
+
+    auto pvMoveEntry = BestMoveTable.find(board.Zobrist);
+    int pvMove = 0;
+    if (pvMoveEntry != BestMoveTable.end())
     {
-        nextBoard = board.Move(move.second);
+        pvMove = pvMoveEntry->second;
+    }
+
+    for (int i = 0; i <= pseudoMoves.size(); i++)
+    {
+        int move;
+        if (i == 0)
+        {
+            if (!pvMove)
+                continue; // no pv
+            move = pvMove;
+        }
+        else
+        {
+            move = pseudoMoves[i - 1].second;
+            if (move == pvMove)
+                continue; // duplicate
+        }
+
+        nextBoard = board.Move(move);
         if (!nextBoard.GetBoardStatus())
             continue; // illegal
 
-        Score score = -search(nextBoard, depth - 1, -beta, -alpha);
+        Score score;
 
-        if (!Computer::Working) // break out if aborted
+        // has entry?
+        auto boardEntry = PositionTable.find(board.Zobrist);
+        if (boardEntry != Computer::PositionTable.end())
+        {
+            // tranposition! this position was already searched during this search iteration
+            transpositionsSkipped++;
+            score = boardEntry->second;
+        }
+        else
+        {
+            // recurse
+            score = -search(nextBoard, currDepth + 1, maxDepth, -beta, -alpha);
+        }
+
+        if (!Computer::Working) // break out if search aborted
         {
             break;
         }
 
         if (score > maxScore)
         {
-            maxScore = score;
-            bestMove = move.second;
-
-            alpha = std::max(alpha, score);
-            if (alpha >= beta)
+            if (score > alpha)
             {
-                // prune branch
-                branchesPruned++;
-                break; 
+                alpha = score;
+                if (alpha >= beta)
+                {
+                    // prune branch
+                    branchesPruned++;
+                    break;
+                }
             }
+
+            maxScore = score;
+            bestMove = move;
         }
     }
 
@@ -312,16 +236,106 @@ Score Computer::search(const Board& board, int depth, Score alpha, Score beta)
         // make sure no stalemate
         if (board.SideToMove == WHITE_TO_MOVE && !(board.Checks & CHECK_WHITE))
             maxScore = 0;
-        if (board.SideToMove == BLACK_TO_MOVE && !(board.Checks & CHECK_BLACK))
+        else if (board.SideToMove == BLACK_TO_MOVE && !(board.Checks & CHECK_BLACK))
             maxScore = 0;
+        else
+        {
+            // checkmate
+            maxScore += currDepth - 1; // deeper mate is worse, also needed for info printout
+        }
+    }
+    else
+    {
+        if (Computer::Working)
+        {
+            BestMoveTable[board.Zobrist] = bestMove;
+        }
     }
 
-    if (Computer::Working)
-    {
-        PositionTable[board.Zobrist] = Position(maxScore, bestMove, currentSearch);
-    }
-    
+    PositionTable[board.Zobrist] = maxScore;
+
     return maxScore;
+}
+
+Score Computer::quiescence(const Board& board, Score alpha, Score beta)
+{
+    Score maxScore = -SCORE_CHECKMATE;
+    int bestMove = 0;
+    std::vector<MOVE> captures;
+    board.GenerateCaptures(captures);
+    Board nextBoard;
+
+    for (const MOVE &m : captures)
+    {
+        int move = m.second;
+        
+        nextBoard = board.Move(move);
+        if (!nextBoard.GetBoardStatus())
+            continue; // illegal
+
+        Score score;
+        // has entry?
+        auto boardEntry = PositionTable.find(board.Zobrist);
+        if (boardEntry != Computer::PositionTable.end())
+        {
+            // tranposition! this position was already searched during this search iteration
+            transpositionsSkipped++;
+            score = boardEntry->second;
+        }
+        else
+        {
+            score = -quiescence(nextBoard, -beta, -alpha);
+        }
+
+        if (!Computer::Working) // break out if aborted
+        {
+            break;
+        }
+
+        if (score > maxScore)
+        {
+            if (score > alpha)
+            {
+                if (alpha >= beta)
+                {
+                    // prune branch
+                    branchesPruned++;
+                    break;
+                }
+            }
+
+            maxScore = score;
+            bestMove = move;
+        }
+
+        //if (score > maxScore)
+        //{
+        //    maxScore = score;
+        //    bestMove = move;
+
+        //    alpha = std::max(alpha, score);
+        //    if (alpha >= beta)
+        //    {
+        //        // prune branch
+        //        branchesPruned++;
+        //        break;
+        //    }
+        //}
+    }
+
+    if (bestMove == 0) // no move found
+    {
+        Score score = Evaluation::evaluate(board); // evaluate, since no more captures
+        if (board.SideToMove == BLACK_TO_MOVE)
+            score = -score;
+        nodesEvaluated++;
+        return score;
+    }
+    else
+    {
+        PositionTable[board.Zobrist] = maxScore;
+        return maxScore;
+    }
 }
 
 #undef U64

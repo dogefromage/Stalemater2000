@@ -21,6 +21,13 @@ Score Evaluation::evaluate(const Board& board)
     eval += evaluateKingSafety(board, true);
     eval -= evaluateKingSafety(board, false);
 
+    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 40;
+    if (board.Castling & CASTLE_KW) eval += 12;
+    if (board.Castling & CASTLE_QW) eval += 8;
+    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 40;
+    if (board.Castling & CASTLE_KB) eval -= 12;
+    if (board.Castling & CASTLE_QB) eval -= 8;
+
     return eval;
 }
     
@@ -44,8 +51,8 @@ Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
     {
         // pull bitboard
         U64 bb = board.BitBoards[b];
-        if (endgameFactor > 18 && b == 5)
-            b++;
+        //if (endgameFactor > 18 && b == 5)
+        //    b++;
         int tableOffset = b * 64 + 63;
         int i = 0;
         while (bb)
@@ -61,8 +68,8 @@ Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
         // pull bitboard
         U64 bb = board.BitBoards[b + 6];
 
-        if (endgameFactor > 18 && b == 5)
-            b++;
+        //if (endgameFactor > 18 && b == 5)
+        //    b++;
         int tableOffset = b * 64;
         int i = 0;
         while (bb)
@@ -73,17 +80,14 @@ Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
         }
     }
     
-    eval *= 150;
-    eval /= 100;
-
-    return eval;
+    return eval * 2;
 }
 
 Score Evaluation::evaluateMobility(const Board& board)
 {
     Score mob = countBits(board.UnsafeForWhite);
     mob -= countBits(board.UnsafeForBlack);
-    return (20 * mob);
+    return (10 * mob);
 }
 
 Score Evaluation::evaluatePawnStructure(const Board& board, int endgameFactor, bool isWhite)
@@ -180,9 +184,7 @@ Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite)
     U64 unsafeBoard = isWhite ? board.UnsafeForWhite : board.UnsafeForBlack;
     int unsafeSquares = countBits(unsafeBoard & kingZone);
 
-    Score totalKingSafety =
-        -   directDanger
-        -   unsafeSquares * 5;
+    Score totalKingSafety = -directDanger;
 
     return totalKingSafety;
 }

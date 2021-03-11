@@ -30,6 +30,8 @@ constexpr int CASTLE_KW = 1;
 constexpr int CASTLE_QW = 2;
 constexpr int CASTLE_KB = 4;
 constexpr int CASTLE_QB = 8;
+constexpr int WHITE_HAS_CASTLED = 1;
+constexpr int BLACK_HAS_CASTLED = 2;
 // FILES
 constexpr U64 FILE_A = 0x101010101010101ULL;
 constexpr U64 FILE_AB = 0x303030303030303ULL;
@@ -119,6 +121,7 @@ public:
     U64 EnpassantTarget = 0;
     char SideToMove = 0;
     char Castling = 0;
+    char HasCastled = 0;
     // Good to know:
     U64 WhitePieces = 0, BlackPieces = 0, NotWhitePieces = 0, NotBlackPieces = 0, Empty = 0, Occupied = 0, UnsafeForWhite = 0, UnsafeForBlack = 0;
     U64 Zobrist = 0;
@@ -126,7 +129,7 @@ public:
 
     Board() {}
 
-    Board(const U64 bitBoards[], const char sideToMove, const char castling, const U64 enpassantTarget, const U64 zobrist);
+    Board(const U64 bitBoards[], const char sideToMove, const char castling, const char hasCastled, const U64 enpassantTarget, const U64 zobrist);
 
     static Board Default();
 
@@ -154,6 +157,11 @@ public:
      */
     void GenerateLegalMoves(std::vector<MOVE>& moveList) const;
 
+    /**
+    * only pseudo-captures
+    */
+    void GenerateCaptures(std::vector<MOVE>& moveList) const;
+
     static std::string MoveToText(int m, bool onlyMove);
 
     static std::string IndexToText(int index);
@@ -180,23 +188,29 @@ private:
 
     void FindUnsafeForBlack();
 
-    void CastlesWhite(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
-
-    void CastlesBlack(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
-
-    void MoveSlidingPiece(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures, U64 bitboard, bool paral, bool diag, bool white) const;
-
     U64 HAndVMoves(int index) const;
 
     U64 DandAntiDMoves(int index) const;
 
+    /**
+    *  Move generators; some have a only-capture version for quiescence search
+    */
+    void CastlesWhite(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
+    void CastlesBlack(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
+
+    void MoveSlidingPiece(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures, U64 bitboard, bool paral, bool diag, bool white) const;
+    void MoveSlidingPiece(std::vector<MOVE>& captures, U64 bitboard, bool paral, bool diag, bool white) const;
+
     void KingMoves(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures, bool isWhite) const;
+    void KingMoves(std::vector<MOVE>& captures, bool isWhite) const;
 
     void KnightMoves(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures, bool isWhite) const;
+    void KnightMoves(std::vector<MOVE>& captures, bool isWhite) const;
 
     void PawnMovesWhite(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
-
+    void PawnMovesWhite(std::vector<MOVE>& captures) const;
     void PawnMovesBlack(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const;
+    void PawnMovesBlack(std::vector<MOVE>& captures) const;
 
     static void AddMovesFromBitboard(std::vector<MOVE>& moves, U64 destinations, int position, int moveData);
 

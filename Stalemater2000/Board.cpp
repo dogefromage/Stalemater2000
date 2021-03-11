@@ -3,7 +3,7 @@
 #define U64 unsigned long long
 
 // constructor
-Board::Board(const U64 bitBoards[], const char sideToMove, const char castling, 
+Board::Board(const U64 bitBoards[], const char sideToMove, const char castling, const char hasCastled,
     const U64 enpassantTarget, const U64 zobrist)
 {
     for (int i = 0; i < 12; i++)
@@ -12,6 +12,7 @@ Board::Board(const U64 bitBoards[], const char sideToMove, const char castling,
     }
     SideToMove = sideToMove;
     Castling = castling;
+    HasCastled = hasCastled;
     EnpassantTarget = enpassantTarget;
     Zobrist = zobrist;
 
@@ -22,127 +23,6 @@ Board Board::Default()
 {
     return FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");
 }
-
-// OLD MOVE EXECUTOR
-//Board Board::Move(const int move) const
-//{
-//    Board newBoard = (*this); // copy
-//
-//    ////////////////////////////// MOVE ////////////////////////////////////
-//    if (move & MOVE_TYPE_CASTLE)
-//    {
-//        if (newBoard.SideToMove == WHITE_TO_MOVE)
-//        {
-//            if (move & MOVE_INFO_CASTLE_KINGSIDE)
-//            {
-//                newBoard.BitBoards[KW] = 0x40ULL; // set king to g1
-//                newBoard.BitBoards[RW] ^= 0xA0ULL; // switch rook to f1
-//            }
-//            else
-//            {
-//                newBoard.BitBoards[KW] = 0x4ULL; // set king to c1
-//                newBoard.BitBoards[RW] ^= 0x9ULL; // switch rook to d1
-//            }
-//            newBoard.Castling &= ~(CASTLE_KW | CASTLE_QW); // disable castling forever
-//        }
-//        else
-//        {
-//            if (move & MOVE_INFO_CASTLE_KINGSIDE)
-//            {
-//                newBoard.BitBoards[KB] = 0x4000000000000000ULL; // set king to g8
-//                newBoard.BitBoards[RB] ^= 0xA000000000000000ULL; // switch rook to f8
-//            }
-//            else
-//            {
-//                newBoard.BitBoards[KB] = 0x400000000000000ULL; // set king to c8
-//                newBoard.BitBoards[RB] ^= 0x900000000000000ULL; // switch rook to d8
-//            }
-//            newBoard.Castling &= ~(CASTLE_KB | CASTLE_QB); // disable castling forever
-//        }
-//    }
-//    else // not a castle
-//    {
-//        U64 from = 1ULL << (move & 0xFF);
-//        U64 to = 1ULL << ((move >> 8) & 0xFF);
-//
-//        // if castle piece is moved (or eaten)
-//        if ((to | from) & CASTLE_MASK_PIECES_WHITE_KING)  newBoard.Castling &= ~CASTLE_KW;
-//        if ((to | from) & CASTLE_MASK_PIECES_WHITE_QUEEN) newBoard.Castling &= ~CASTLE_QW;
-//        if ((to | from) & CASTLE_MASK_PIECES_BLACK_KING)  newBoard.Castling &= ~CASTLE_KB;
-//        if ((to | from) & CASTLE_MASK_PIECES_BLACK_QUEEN) newBoard.Castling &= ~CASTLE_QB;
-//
-//        for (int i = 0; i < 12; i++)
-//        {
-//            if (newBoard.BitBoards[i] & from)
-//            {
-//                newBoard.BitBoards[i] ^= (from | to); // flip both bits
-//            }
-//            else
-//            {
-//                newBoard.BitBoards[i] &= ~(from | to); // turn off all other bits
-//            }
-//        }
-//
-//        // SPECIALS
-//        if (move & MOVE_TYPE_PAWN_HOPP)
-//        {
-//            if (from < to) // white
-//                newBoard.EnpassantTarget = from << 8;
-//            else // black
-//                newBoard.EnpassantTarget = to << 8;
-//        }
-//        else if (move & MOVE_TYPE_ENPASSANT)
-//        {
-//            // KILL HOPPED PAWN
-//            if (from < to) // white
-//            {
-//                if (move & MOVE_INFO_ENPASSANT_LEFT)
-//                    newBoard.BitBoards[PB] ^= from >> 1;
-//                else
-//                    newBoard.BitBoards[PB] ^= from << 1;
-//            }
-//            else
-//            {
-//                if (move & MOVE_INFO_ENPASSANT_LEFT)
-//                    newBoard.BitBoards[PW] ^= from << 1; // reverse shift direction
-//                else
-//                    newBoard.BitBoards[PW] ^= from >> 1;
-//            }
-//        }
-//        else if (move & MOVE_TYPE_PROMOTE)
-//        {
-//            if (from < to)
-//            {
-//                newBoard.BitBoards[PW] &= ~to; // turn off bit
-//                if (move & MOVE_INFO_PROMOTE_QUEEN)       newBoard.BitBoards[QW] |= to; // turn on bit
-//                else if (move & MOVE_INFO_PROMOTE_HORSEY) newBoard.BitBoards[NW] |= to;
-//                else if (move & MOVE_INFO_PROMOTE_ROOK)   newBoard.BitBoards[RW] |= to;
-//                else if (move & MOVE_INFO_PROMOTE_BISHOP) newBoard.BitBoards[BW] |= to;
-//            }
-//            else
-//            {
-//                newBoard.BitBoards[PB] &= ~to; // turn off bit
-//                if (move & MOVE_INFO_PROMOTE_QUEEN)       newBoard.BitBoards[QB] |= to; // turn on bit
-//                else if (move & MOVE_INFO_PROMOTE_HORSEY) newBoard.BitBoards[NB] |= to;
-//                else if (move & MOVE_INFO_PROMOTE_ROOK)   newBoard.BitBoards[RB] |= to;
-//                else if (move & MOVE_INFO_PROMOTE_BISHOP) newBoard.BitBoards[BB] |= to;
-//            }
-//        }
-//    }
-//
-//    if (!(move & MOVE_TYPE_PAWN_HOPP))
-//        newBoard.EnpassantTarget = 0; // reset if move not hopp
-//
-//    // switch player
-//    if (newBoard.SideToMove == WHITE_TO_MOVE)
-//        newBoard.SideToMove = BLACK_TO_MOVE;
-//    else
-//        newBoard.SideToMove = WHITE_TO_MOVE;
-//
-//    newBoard.Init();
-//
-//    return newBoard;
-//}
 
 /**
 * Make move and return new updated board
@@ -161,11 +41,13 @@ Board Board::Move(const int move) const
             {
                 newBoard.ExecuteMove(KW, 4, 6); // set king to g1
                 newBoard.ExecuteMove(RW, 7, 5); // switch rook to f1
+                newBoard.HasCastled |= WHITE_HAS_CASTLED;
             }
             else
             {
                 newBoard.ExecuteMove(KW, 4, 2); // set king to c1
                 newBoard.ExecuteMove(RW, 0, 3); // switch rook to d1
+                newBoard.HasCastled |= WHITE_HAS_CASTLED;
             }
 
             newBoard.ForbidCastling(0);
@@ -177,11 +59,13 @@ Board Board::Move(const int move) const
             {
                 newBoard.ExecuteMove(KB, 60, 62);
                 newBoard.ExecuteMove(RB, 63, 61);
+                newBoard.HasCastled |= BLACK_HAS_CASTLED;
             }
             else
             {
                 newBoard.ExecuteMove(KB, 60, 58);
                 newBoard.ExecuteMove(RB, 56, 59);
+                newBoard.HasCastled |= BLACK_HAS_CASTLED;
             }
 
             newBoard.ForbidCastling(2);

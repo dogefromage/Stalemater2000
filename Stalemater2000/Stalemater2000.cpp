@@ -187,7 +187,7 @@ int tryParseToInt(const vector<string>& command, int index)
 
 void manageTime(long long remainingTime)
 {
-    LOG("remaining: " + remainingTime);
+    LOG("remaining: " + std::to_string(remainingTime));
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -230,7 +230,6 @@ int main()
     cout << ENGINENAME << " v1.0" << endl;
 
     InitZobrist();
-    Computer::Init();
     Board board = Board::Default();
 
     std::srand(time(0));
@@ -273,8 +272,7 @@ int main()
                 }
                 else if (arguments[0] == "isready")
                     cout << "readyok\n";
-                else if (arguments[0] == "ucinewgame")
-                    Computer::Init();
+                else if (arguments[0] == "ucinewgame") { }
                 else if (arguments[0] == "debug")
                 {
                     if (arguments.size() > 1)

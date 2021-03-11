@@ -28,7 +28,7 @@ void Board::GenerateLegalMoves(std::vector<MOVE>& moveList) const
 void Board::GeneratePseudoMoves(std::vector<MOVE>& moveList) const
 {
     std::vector<MOVE> captures;
-    captures.reserve(40);
+    captures.reserve(20);
     std::vector<MOVE> nonCaptures;
     nonCaptures.reserve(40);
 
@@ -80,7 +80,7 @@ void Board::GeneratePseudoMoves(std::vector<MOVE>& moveList) const
     }
 
     // SORT CAPTURES
-    std::sort(captures.begin(), captures.end(), [](const MOVE& a, const MOVE& b) {
+    std::stable_sort(captures.begin(), captures.end(), [](const MOVE& a, const MOVE& b) {
         return a.first > b.first;
     });
 
@@ -88,8 +88,35 @@ void Board::GeneratePseudoMoves(std::vector<MOVE>& moveList) const
     moveList.reserve(captures.size() + nonCaptures.size());
     // INSERT CAPTURES
     moveList.insert(moveList.end(), captures.begin(), captures.end());
-    // INSERT CAPTURES
+    // INSERT NON-CAPTURES
     moveList.insert(moveList.end(), nonCaptures.begin(), nonCaptures.end());
+}
+
+void Board::GenerateCaptures(std::vector<MOVE>& captures) const
+{
+    captures.reserve(20);
+
+    bool isWhite = SideToMove == WHITE_TO_MOVE;
+
+    KnightMoves(captures, isWhite); // horseys
+    KingMoves(captures, isWhite); // king
+
+    if (isWhite)
+    {
+        MoveSlidingPiece(captures, BitBoards[BW], false, true, true); // bishops
+        MoveSlidingPiece(captures, BitBoards[RW], true, false, true); // rooks
+        MoveSlidingPiece(captures, BitBoards[QW], true, true, true); // queens
+        PawnMovesWhite(captures); // pawns
+        // castles not needed
+    }
+    else
+    {
+        MoveSlidingPiece(captures, BitBoards[BB], false, true, false); // bishops
+        MoveSlidingPiece(captures, BitBoards[RB], true, false, false); // rooks
+        MoveSlidingPiece(captures, BitBoards[QB], true, true, false); // queens
+        PawnMovesBlack(captures); // pawns
+        // castles not needed
+    };
 }
 
 void Board::CastlesWhite(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const
@@ -163,6 +190,28 @@ void Board::MoveSlidingPiece(std::vector<MOVE>& captures, std::vector<MOVE>& non
     }
 }
 
+void Board::MoveSlidingPiece(std::vector<MOVE>& captures, U64 bitboard, bool paral, bool diag, bool isWhite) const
+{
+    const U64& validPositions = isWhite ? NotWhitePieces : NotBlackPieces;
+    const U64& othersPieces = isWhite ? BlackPieces : WhitePieces;
+
+    int i = 0;
+    while (bitboard)
+    {
+        i = trailingZeros(bitboard);
+        bitboard ^= 1ULL << i; // unset this bit
+        // -> piece at i
+        U64 moves = 0;
+        // find all moves
+        if (paral) moves |= HAndVMoves(i);
+        if (diag) moves |= DandAntiDMoves(i);
+        // mask with board
+        moves &= validPositions;
+        // add to list
+        AddMovesFromBitboard(captures, moves & othersPieces, i, 0);
+    }
+}
+
 U64 Board::HAndVMoves(int index) const
 {
     U64 s = 1ULL << index;
@@ -208,6 +257,27 @@ void Board::KingMoves(std::vector<MOVE>& captures, std::vector<MOVE>& nonCapture
     }
 }
 
+void Board::KingMoves(std::vector<MOVE>& captures, bool isWhite) const
+{
+    U64 king = isWhite ? BitBoards[KW] : BitBoards[KB];
+    U64 validPositions = isWhite ? (NotWhitePieces & ~UnsafeForWhite) : (NotBlackPieces & ~UnsafeForBlack);
+    const U64& othersPieces = isWhite ? BlackPieces : WhitePieces;
+
+    while (king)
+    {
+        int i = trailingZeros(king);
+        king ^= 1ULL << i; // somehow necessary if multiple kings...
+        // -> piece at i
+        int offset = i - SPAN_KING_OFFSET;
+        U64 moves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset; // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)  moves &= ~FILE_H;
+        else            moves &= ~FILE_A;
+        moves &= validPositions;
+        // add to list
+        AddMovesFromBitboard(captures, moves & othersPieces, i, 0);
+    }
+}
+
 void Board::KnightMoves(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures, bool isWhite) const
 {
     U64 horse = isWhite ? BitBoards[NW] : BitBoards[NB];
@@ -229,6 +299,29 @@ void Board::KnightMoves(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptu
         // add to list
         AddMovesFromBitboard(captures, moves & othersPieces, i, 0);
         AddMovesFromBitboard(nonCaptures, moves & ~othersPieces, i, 0);
+    }
+}
+
+void Board::KnightMoves(std::vector<MOVE>& captures, bool isWhite) const
+{
+    U64 horse = isWhite ? BitBoards[NW] : BitBoards[NB];
+    const U64& validPositions = isWhite ? NotWhitePieces : NotBlackPieces;
+    const U64& othersPieces = isWhite ? BlackPieces : WhitePieces;
+
+    int i = 0;
+    while (horse)
+    {
+        i = trailingZeros(horse);
+        horse ^= 1ULL << i; // unset this bit
+        // -> piece at i
+        int offset = i - SPAN_HORSE_OFFSET;
+        U64 moves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset; // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)  moves &= ~FILE_GH;
+        else            moves &= ~FILE_AB;
+
+        moves &= validPositions;
+        // add to list
+        AddMovesFromBitboard(captures, moves & othersPieces, i, 0);
     }
 }
 
@@ -262,6 +355,27 @@ void Board::PawnMovesWhite(std::vector<MOVE>& captures, std::vector<MOVE>& nonCa
     AddMovesFromBitboardPawnPromote(nonCaptures, pawnMoves, 8);
 }
 
+void Board::PawnMovesWhite(std::vector<MOVE>& captures) const
+{
+    const U64& pawns = BitBoards[PW];
+    U64 pawnMoves;
+    // Diag left
+    pawnMoves = (pawns << 7) & ~FILE_H & ~RANK_8 & (BlackPieces | EnpassantTarget);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & ~EnpassantTarget, 7, 0);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & EnpassantTarget, 7, MOVE_TYPE_ENPASSANT | MOVE_INFO_ENPASSANT_LEFT);
+    // Diag right
+    pawnMoves = (pawns << 9) & ~FILE_A & ~RANK_8 & (BlackPieces | EnpassantTarget);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & ~EnpassantTarget, 9, 0);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & EnpassantTarget, 9, MOVE_TYPE_ENPASSANT | MOVE_INFO_ENPASSANT_RIGHT);
+
+    // Promote diag left
+    pawnMoves = (pawns << 7) & ~FILE_H & RANK_8 & BlackPieces;
+    AddMovesFromBitboardPawnPromote(captures, pawnMoves, 7);
+    // Promote diag right
+    pawnMoves = (pawns << 9) & ~FILE_A & RANK_8 & BlackPieces;
+    AddMovesFromBitboardPawnPromote(captures, pawnMoves, 9);
+}
+
 void Board::PawnMovesBlack(std::vector<MOVE>& captures, std::vector<MOVE>& nonCaptures) const
 {
     const U64& pawns = BitBoards[PB];
@@ -290,6 +404,27 @@ void Board::PawnMovesBlack(std::vector<MOVE>& captures, std::vector<MOVE>& nonCa
     // Promote forward
     pawnMoves = (pawns >> 8) & RANK_1 & Empty;
     AddMovesFromBitboardPawnPromote(nonCaptures, pawnMoves, -8);
+}
+
+void Board::PawnMovesBlack(std::vector<MOVE>& captures) const
+{
+    const U64& pawns = BitBoards[PB];
+    U64 pawnMoves;
+    // Diag left
+    pawnMoves = (pawns >> 7) & ~FILE_A & ~RANK_1 & (WhitePieces | EnpassantTarget);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & ~EnpassantTarget, -7, 0);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & EnpassantTarget, -7, MOVE_TYPE_ENPASSANT | MOVE_INFO_ENPASSANT_LEFT);
+    // Diag right
+    pawnMoves = (pawns >> 9) & ~FILE_H & ~RANK_1 & (WhitePieces | EnpassantTarget);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & ~EnpassantTarget, -9, 0);
+    AddMovesFromBitboardAbsolute(captures, pawnMoves & EnpassantTarget, -9, MOVE_TYPE_ENPASSANT | MOVE_INFO_ENPASSANT_RIGHT);
+
+    // Promote diag left
+    pawnMoves = (pawns >> 7) & ~FILE_A & RANK_1 & WhitePieces;
+    AddMovesFromBitboardPawnPromote(captures, pawnMoves, -7);
+    // Promote diag right
+    pawnMoves = (pawns >> 9) & ~FILE_H & RANK_1 & WhitePieces;
+    AddMovesFromBitboardPawnPromote(captures, pawnMoves, -9);
 }
 
 void Board::AddMovesFromBitboard(std::vector<MOVE>& moves, U64 destinations, int position, int moveData)
