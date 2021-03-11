@@ -3,12 +3,14 @@
 
 struct Position
 {
-	short searchID = 0;
+	Score score;
+	//short depth;
 
-	Position() {};
+	Position() {}
 
-	Position(const short& _score, const short& _searchID)
+	Position(const short& _score/*, const short& _depth*/)
 	{
-		searchID = _searchID;
+		score = _score;
+		//depth = _depth;
 	}
 };

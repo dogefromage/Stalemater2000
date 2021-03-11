@@ -9,6 +9,7 @@
 #include "Board.h"
 #include "Debug.h"
 #include "Evaluation.h"
+#include "Position.h"
 
 #define U64 unsigned long long
 
@@ -17,7 +18,7 @@ class Computer
 public:
     static bool Working;
     static std::unordered_map<U64, int> BestMoveTable;
-    static std::unordered_map<U64, Score> PositionTable;
+    static std::unordered_map<U64, Position> PositionTable;
 
     static std::string GetMessage();
 

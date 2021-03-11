@@ -6,31 +6,31 @@ Score Evaluation::evaluate(const Board& board)
 {
     Score eval = 0;
     int totalPopulation = countBits(board.Occupied);
-    int endgameFactor = 32 - totalPopulation; // 0 ~ 30
+    float endgameFactor = 1.0f - (totalPopulation / 32.0f);
 
     // balance
     eval += evaluateBalance(board);
     // piece positions
     eval += evaluatePiecePositions(board, endgameFactor);
-    // Mobility
+    //Mobility
     eval += evaluateMobility(board);
-    //// pawns
+    // pawns
     eval += evaluatePawnStructure(board, endgameFactor, true);
     eval -= evaluatePawnStructure(board, endgameFactor, false);
-    //// king safety
-    eval += evaluateKingSafety(board, true);
-    eval -= evaluateKingSafety(board, false);
+    // king safety
+    eval += evaluateKingSafety(board, endgameFactor, true);
+    eval -= evaluateKingSafety(board, endgameFactor, false);
 
-    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 40;
-    if (board.Castling & CASTLE_KW) eval += 12;
+    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 30;
+    if (board.Castling & CASTLE_KW) eval += 10;
     if (board.Castling & CASTLE_QW) eval += 8;
-    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 40;
-    if (board.Castling & CASTLE_KB) eval -= 12;
+    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 30;
+    if (board.Castling & CASTLE_KB) eval -= 10;
     if (board.Castling & CASTLE_QB) eval -= 8;
 
     return eval;
 }
-    
+
 Score Evaluation::evaluateBalance(const Board& board)
 {
     Score eval = 0;
@@ -42,24 +42,38 @@ Score Evaluation::evaluateBalance(const Board& board)
     return eval;
 }
 
-Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
+Score Evaluation::evaluatePiecePositions(const Board& board, float endgameFactor)
 {
     Score eval = 0;
 
     // white
+    int i = 0;
     for (int b = 0; b < 6; b++)
     {
         // pull bitboard
         U64 bb = board.BitBoards[b];
-        //if (endgameFactor > 18 && b == 5)
-        //    b++;
-        int tableOffset = b * 64 + 63;
-        int i = 0;
-        while (bb)
+        if (b == 5)
         {
-            i = trailingZeros(bb);
-            eval += PIECE_SQUARE_TABLE[tableOffset - i]; // walk through array reverse bc. white
-            bb ^= 1ULL << i; // unset bit
+            int tableOffset = b * 64 + 63;
+            int eval1, eval2;
+            while (bb)
+            {
+                i = trailingZeros(bb);
+                eval1 = PIECE_SQUARE_TABLE[tableOffset - i];
+                eval2 = PIECE_SQUARE_TABLE[tableOffset + 64 - i]; // walk through array reverse bc. white
+                eval += (int)(eval1 * (1.f - endgameFactor) + eval2 * endgameFactor);
+                bb ^= 1ULL << i; // unset bit
+            }
+        }
+        else
+        {
+            int tableOffset = b * 64 + 63;
+            while (bb)
+            {
+                i = trailingZeros(bb);
+                eval += PIECE_SQUARE_TABLE[tableOffset - i]; // walk through array reverse bc. white
+                bb ^= 1ULL << i; // unset bit
+            }
         }
     }
 
@@ -68,29 +82,42 @@ Score Evaluation::evaluatePiecePositions(const Board& board, int endgameFactor)
         // pull bitboard
         U64 bb = board.BitBoards[b + 6];
 
-        //if (endgameFactor > 18 && b == 5)
-        //    b++;
-        int tableOffset = b * 64;
-        int i = 0;
-        while (bb)
+        if (b == 5)
         {
-            i = trailingZeros(bb);
-            eval -= PIECE_SQUARE_TABLE[tableOffset + i]; // normal
-            bb ^= 1ULL << i; // unset bit
+            int tableOffset = b * 64;
+            int eval1, eval2;
+            while (bb)
+            {
+                i = trailingZeros(bb);
+                eval1 = PIECE_SQUARE_TABLE[tableOffset + i];
+                eval2 = PIECE_SQUARE_TABLE[tableOffset + 64 + i]; // walk through array reverse bc. white
+                eval -= (int)(eval1 * (1.f - endgameFactor) + eval2 * endgameFactor);
+                bb ^= 1ULL << i; // unset bit
+            }
+        }
+        else
+        {
+            int tableOffset = b * 64;
+            while (bb)
+            {
+                i = trailingZeros(bb);
+                eval -= PIECE_SQUARE_TABLE[tableOffset + i]; // walk through array reverse bc. white
+                bb ^= 1ULL << i; // unset bit
+            }
         }
     }
     
-    return eval * 2;
+    return eval / 2;
 }
 
 Score Evaluation::evaluateMobility(const Board& board)
 {
     Score mob = countBits(board.UnsafeForWhite);
     mob -= countBits(board.UnsafeForBlack);
-    return (10 * mob);
+    return (3 * mob);
 }
 
-Score Evaluation::evaluatePawnStructure(const Board& board, int endgameFactor, bool isWhite)
+Score Evaluation::evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite)
 {
     const U64& pawns = isWhite ? board.BitBoards[PW] : board.BitBoards[PB];
     U64 p;
@@ -144,12 +171,10 @@ Score Evaluation::evaluatePawnStructure(const Board& board, int endgameFactor, b
         -   blocked
         -   isolated;
     
-    totalPawnsEval *= endgameFactor + 5;
-    
-    return totalPawnsEval;
+    return (int)(totalPawnsEval * (endgameFactor + 3));
 }
 
-Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite)
+Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
 {
     const U64& king = isWhite ? board.BitBoards[KW] : board.BitBoards[KB];
 
@@ -184,7 +209,21 @@ Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite)
     U64 unsafeBoard = isWhite ? board.UnsafeForWhite : board.UnsafeForBlack;
     int unsafeSquares = countBits(unsafeBoard & kingZone);
 
-    Score totalKingSafety = -directDanger;
+    int kingCenterPosition = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        if (king & RING_MASK[i])
+        {
+            kingCenterPosition += i;
+            break;
+        }
+    }
+    kingCenterPosition = (int)(kingCenterPosition * endgameFactor * endgameFactor * 5);
+
+    Score totalKingSafety = 
+        -   directDanger * 2
+        -   unsafeSquares
+        -   kingCenterPosition;
 
     return totalKingSafety;
 }

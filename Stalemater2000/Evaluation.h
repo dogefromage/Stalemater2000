@@ -110,13 +110,13 @@ struct Evaluation
 private:
     static Score evaluateBalance(const Board& board);
 
-    static Score evaluatePiecePositions(const Board& board, int endgameFactor);
+    static Score evaluatePiecePositions(const Board& board, float endgameFactor);
 
     static Score evaluateMobility(const Board& board);
 
-    static Score evaluatePawnStructure(const Board& board, int endgameFactor, bool isWhite);
+    static Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite);
 
-    static Score evaluateKingSafety(const Board& board, bool isWhite);
+    static Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor);
 };
 
 #undef U64

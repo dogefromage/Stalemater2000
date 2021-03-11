@@ -12,7 +12,7 @@
 bool Computer::Working = false;
 
 std::unordered_map<U64, int> Computer::BestMoveTable;
-std::unordered_map<U64, Score> Computer::PositionTable;
+std::unordered_map<U64, Position> Computer::PositionTable;
 
 std::mutex messageLock;
 std::queue<std::string> Computer::messages;
@@ -87,8 +87,6 @@ void Computer::ChooseMove(Board board, int maxDepth)
         }
         else
         {
-            if (board.SideToMove == BLACK_TO_MOVE)
-                score = -score;
             info += " score cp " + std::to_string(score);
         }
 
@@ -149,13 +147,14 @@ Score Computer::search(const Board& board, int currDepth, int maxDepth, Score al
 {
     if (currDepth == maxDepth)
     {
-        //return quiescence(board, alpha, beta);
+        //Score score = quiescence(board, alpha, beta);
+        //return score - currDepth;
 
         Score score = Evaluation::evaluate(board); // evaluate, since no more captures
         if (board.SideToMove == BLACK_TO_MOVE)
             score = -score;
         nodesEvaluated++;
-        return score;
+        return score - currDepth;
     }
 
     Score maxScore = -SCORE_CHECKMATE;
@@ -199,7 +198,7 @@ Score Computer::search(const Board& board, int currDepth, int maxDepth, Score al
         {
             // tranposition! this position was already searched during this search iteration
             transpositionsSkipped++;
-            score = boardEntry->second;
+            score = boardEntry->second.score - currDepth; // eval deep positions worse
         }
         else
         {
@@ -252,7 +251,7 @@ Score Computer::search(const Board& board, int currDepth, int maxDepth, Score al
         }
     }
 
-    PositionTable[board.Zobrist] = maxScore;
+    PositionTable[board.Zobrist] = { maxScore + (short)currDepth }; // add depth back on, bc. earlier it was removed
 
     return maxScore;
 }
@@ -280,7 +279,7 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
         {
             // tranposition! this position was already searched during this search iteration
             transpositionsSkipped++;
-            score = boardEntry->second;
+            score = boardEntry->second.score;
         }
         else
         {
