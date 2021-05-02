@@ -2,36 +2,7 @@
 
 #define U64 unsigned long long
 
-Score Evaluation::evaluate(const Board& board)
-{
-    Score eval = 0;
-    int totalPopulation = countBits(board.Occupied);
-    float endgameFactor = 1.0f - (totalPopulation / 32.0f);
-
-    // balance
-    eval += evaluateBalance(board);
-    // piece positions
-    eval += evaluatePiecePositions(board, endgameFactor);
-    //Mobility
-    eval += evaluateMobility(board);
-    // pawns
-    eval += evaluatePawnStructure(board, endgameFactor, true);
-    eval -= evaluatePawnStructure(board, endgameFactor, false);
-    // king safety
-    eval += evaluateKingSafety(board, endgameFactor, true);
-    eval -= evaluateKingSafety(board, endgameFactor, false);
-
-    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 30;
-    if (board.Castling & CASTLE_KW) eval += 10;
-    if (board.Castling & CASTLE_QW) eval += 8;
-    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 30;
-    if (board.Castling & CASTLE_KB) eval -= 10;
-    if (board.Castling & CASTLE_QB) eval -= 8;
-
-    return eval;
-}
-
-Score Evaluation::evaluateBalance(const Board& board)
+Score evaluateBalance(const Board& board)
 {
     Score eval = 0;
     for (int i = 0; i < 5; i++)
@@ -42,7 +13,7 @@ Score Evaluation::evaluateBalance(const Board& board)
     return eval;
 }
 
-Score Evaluation::evaluatePiecePositions(const Board& board, float endgameFactor)
+Score evaluatePiecePositions(const Board& board, float endgameFactor)
 {
     Score eval = 0;
 
@@ -106,18 +77,18 @@ Score Evaluation::evaluatePiecePositions(const Board& board, float endgameFactor
             }
         }
     }
-    
+
     return eval / 2;
 }
 
-Score Evaluation::evaluateMobility(const Board& board)
+Score evaluateMobility(const Board& board)
 {
     Score mob = countBits(board.UnsafeForWhite);
     mob -= countBits(board.UnsafeForBlack);
     return (3 * mob);
 }
 
-Score Evaluation::evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite)
+Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite)
 {
     const U64& pawns = isWhite ? board.BitBoards[PW] : board.BitBoards[PB];
     U64 p;
@@ -164,17 +135,17 @@ Score Evaluation::evaluatePawnStructure(const Board& board, float endgameFactor,
         chained += countBits(pawns & ((pawns << 7) & ~FILE_H));
         chained += countBits(pawns & ((pawns << 9) & ~FILE_A));
     }
-
+    
     Score totalPawnsEval =
         +   chained
         -   doubled
         -   blocked
         -   isolated;
     
-    return (int)(totalPawnsEval * (endgameFactor + 3));
+    return totalPawnsEval;
 }
 
-Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
+Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
 {
     const U64& king = isWhite ? board.BitBoards[KW] : board.BitBoards[KB];
 
@@ -226,6 +197,39 @@ Score Evaluation::evaluateKingSafety(const Board& board, bool isWhite, float end
         -   kingCenterPosition;
 
     return totalKingSafety;
+}
+
+Score Evaluation::evaluate(const Board& board)
+{
+    Score eval = 0;
+    int totalPopulation = countBits(board.Occupied);
+    float endgameFactor = 1.0f - (totalPopulation / 32.0f);
+
+    // balance
+    eval += evaluateBalance(board);
+
+
+    // piece positions
+    eval += evaluatePiecePositions(board, endgameFactor);
+    //Mobility
+    //eval += evaluateMobility(board);
+    // pawns
+    eval += evaluatePawnStructure(board, endgameFactor, true);
+    eval -= evaluatePawnStructure(board, endgameFactor, false);
+    // king safety
+    //eval += evaluateKingSafety(board, endgameFactor, true);
+    //eval -= evaluateKingSafety(board, endgameFactor, false);
+
+    // has castled
+    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 40;
+    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 40;
+    // can castle
+    if (board.Castling & CASTLE_KW) eval += 10;
+    if (board.Castling & CASTLE_QW) eval += 8;
+    if (board.Castling & CASTLE_KB) eval -= 10;
+    if (board.Castling & CASTLE_QB) eval -= 8;
+
+    return eval;
 }
 
 #undef U64

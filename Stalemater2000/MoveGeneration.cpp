@@ -16,14 +16,13 @@ void Board::GenerateLegalMoves(std::vector<MOVE>& moveList) const
     for (const MOVE& m : pseudoMoves)
     {
         Board testBoard = Move(m.second);
-        if (testBoard.GetBoardStatus())
+        if (testBoard.IsLegal())
             moveList.push_back(m);
     }
 }
 
 /**
 * GENERATES PSEUDO MOVES (SOME MIGHT BE ILLEGAL, LIKE DISCOVERY ATTACKS ON KING).
-* IF CURRENT POSITION IS ILLEGAL, 0 IS RETURNED
 */
 void Board::GeneratePseudoMoves(std::vector<MOVE>& moveList) const
 {

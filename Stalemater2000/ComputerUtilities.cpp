@@ -94,7 +94,7 @@ unsigned long long Computer::perft(Board& board, int depth)
             break;
 
         nextBoard = board.Move(m.second);
-        if (!nextBoard.GetBoardStatus())
+        if (!nextBoard.IsLegal())
             continue; // illegal move
 
         moves += perft(nextBoard, depth - 1); // recurse
@@ -118,7 +118,7 @@ static void ZobristRecurse(const Board& board, std::vector<int>& moveList, int d
             break;
 
         nextBoard = board.Move(m.second);
-        if (!nextBoard.GetBoardStatus())
+        if (!nextBoard.IsLegal())
             continue; // illegal move
 
         moveList.push_back(m.second);

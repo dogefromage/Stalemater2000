@@ -110,11 +110,7 @@ constexpr int MOVE_INFO_PROMOTE_BISHOP = 0x4000000;
 constexpr int MOVE_INFO_PROMOTE_ROOK = 0x8000000;
 constexpr int MOVE_INFO_CASTLE_KINGSIDE = 0x1000000;
 constexpr int MOVE_INFO_CASTLE_QUEENSIDE = 0x2000000;
-// POSITION STATUS
-constexpr int POSITION_ILLEGAL = 0;
-constexpr int POSITION_LEGAL = 1;
-constexpr int POSITION_WHITE_CHECKED = 2;
-constexpr int POSITION_BLACK_CHECKED = 4;
+
 // CHECK
 constexpr int CHECK_WHITE = 1;
 constexpr int CHECK_BLACK = 2;
@@ -133,6 +129,11 @@ public:
     U64 Zobrist = 0;
     char Checks = 0;
 
+    // Stalemate stuff
+    short FullMovesCount = 1;
+    short NoCaptureOrPush = 0;
+    const Board* LastBoard = nullptr;
+
     Board() {}
 
     Board(const U64 bitBoards[], const char sideToMove, const char castling, const char hasCastled, const U64 enpassantTarget, const U64 zobrist);
@@ -144,13 +145,15 @@ public:
      */
     Board Move(const int move) const;
 
-    void ExecuteMove(int bb, int from, int to);
+    bool ExecuteMove(int bb, int from, int to);
 
     void ForbidCastling(int castlingType);
 
     void SetEnpassantTarget(U64 newTarget);
 
-    int GetBoardStatus() const;
+    bool IsLegal() const;
+
+    bool IsStalemate() const;
 
     /**
      * GENERATES PSEUDO MOVES (SOME MIGHT BE ILLEGAL, LIKE DISCOVERY ATTACKS ON KING).
@@ -174,7 +177,7 @@ public:
 
     static int TextToIndex(const std::string& text);
 
-    static Board FromFEN(const std::string& fenInput);
+    static Board FromFEN(const std::vector<std::string>& arguments, int startIndex);
 
     std::string ToFEN() const;
 

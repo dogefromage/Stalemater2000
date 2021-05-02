@@ -4,7 +4,7 @@
 #define U64 unsigned long long
 
 #define Score short
-constexpr short SCORE_CHECKMATE = 30000;
+constexpr Score SCORE_CHECKMATE = 30000;
 
 // SOME VALUES AND TABLES //https://www.chessprogramming.org/Simplified_Evaluation_Function
 
@@ -105,18 +105,8 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] =
 
 struct Evaluation
 {
+public:
     static Score evaluate(const Board& board);
-
-private:
-    static Score evaluateBalance(const Board& board);
-
-    static Score evaluatePiecePositions(const Board& board, float endgameFactor);
-
-    static Score evaluateMobility(const Board& board);
-
-    static Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite);
-
-    static Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor);
 };
 
 #undef U64

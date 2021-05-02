@@ -8,8 +8,8 @@
 
 #include "Board.h"
 #include "Debug.h"
-#include "Evaluation.h"
 #include "Position.h"
+#include "Evaluation.h"
 
 #define U64 unsigned long long
 
@@ -24,7 +24,7 @@ public:
 
     static void AddMessage(std::string msg);
 
-    static void ChooseMove(Board board, int maxDepth);
+    static void ChooseMove(const Board& board, int maxDepth);
 
     static void PerftAnalysis(Board board, int depth);
     
@@ -35,7 +35,7 @@ private:
 
     static int randomMove(Board& board);
 
-    static Score search(const Board& board, int currDepth, int maxDepth, Score alpha, Score beta);
+    static Score search(const Board& board, int remainingDepth, Score alpha, Score beta);
 
     static Score quiescence(const Board& board, Score alpha, Score beta);
 

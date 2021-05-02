@@ -1,4 +1,5 @@
 #include "Board.h"
+#include "Debug.h"
 
 #define U64 unsigned long long
 
@@ -21,7 +22,8 @@ Board::Board(const U64 bitBoards[], const char sideToMove, const char castling, 
 
 Board Board::Default()
 {
-    return FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");
+    std::vector<std::string> fen = { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-", "0", "1" };
+    return FromFEN(fen, 0);
 }
 
 /**
@@ -30,7 +32,10 @@ Board Board::Default()
 */
 Board Board::Move(const int move) const
 {
-    Board newBoard = (*this); // copy
+    Board newBoard(*this);
+    newBoard.LastBoard = this;
+
+    bool captureOrPush = false;
 
     ////////////////////////////// MOVE ////////////////////////////////////
     if (move & MOVE_TYPE_CASTLE)
@@ -90,7 +95,13 @@ Board Board::Move(const int move) const
         {
             if (newBoard.BitBoards[i] & from)
             {
-                newBoard.ExecuteMove(i, fromIndex, toIndex);
+                bool isCapture = newBoard.ExecuteMove(i, fromIndex, toIndex);
+
+                if (isCapture || i == PW || i == PB)
+                {
+                    captureOrPush = true;
+                }
+
                 break;
             }
         }
@@ -176,22 +187,43 @@ Board Board::Move(const int move) const
         }
     }
 
-    if (!(move & MOVE_TYPE_PAWN_HOPP))
+    if ( !(move & MOVE_TYPE_PAWN_HOPP) )
+    {
         newBoard.SetEnpassantTarget(0);
+    }
+
+    // count fullMove counter
+    if (newBoard.SideToMove == BLACK_TO_MOVE)
+    {
+        newBoard.FullMovesCount++;
+    }
 
     // switch player
     newBoard.SideToMove ^= 1;
     newBoard.Zobrist ^= ZobristValues[ZOBRISTTABLE_BLACK_MOVE];
 
+    // no-capture counter
+    if (captureOrPush)
+    {
+        newBoard.NoCaptureOrPush = 0;
+    }
+    else
+    {
+        newBoard.NoCaptureOrPush++;
+    }
+
     newBoard.Init();
+
 
     return newBoard;
 }
 
-void Board::ExecuteMove(int bb, int from, int to)
+bool Board::ExecuteMove(int bb, int from, int to)
 {
     U64 fromMask = 1ULL << from;
     U64 toMask = 1ULL << to;
+
+    bool isCapture = false;
 
     // capture or not?
     if (toMask & Occupied) 
@@ -203,7 +235,8 @@ void Board::ExecuteMove(int bb, int from, int to)
                 // turn captured bit off
                 BitBoards[i] &= ~toMask;
                 Zobrist ^= ZobristValues[i * 64 + to];
-
+                
+                isCapture = true;
                 break; // only one capture possible
             }
         }
@@ -217,6 +250,7 @@ void Board::ExecuteMove(int bb, int from, int to)
     BitBoards[bb] |= toMask;
     Zobrist ^= ZobristValues[bb * 64 + to];
 
+    return isCapture;
 }
 
 void Board::ForbidCastling(int castlingType)
@@ -248,20 +282,86 @@ void Board::SetEnpassantTarget(U64 newTarget)
     }
 }
 
-int Board::GetBoardStatus() const
+bool Board::IsLegal() const
 {
     bool whiteCheck = Checks & CHECK_WHITE;
     bool blackCheck = Checks & CHECK_BLACK;
-    // CHECK LEGAL
-    if (SideToMove == BLACK_TO_MOVE && whiteCheck) return POSITION_ILLEGAL;
-    if (SideToMove == WHITE_TO_MOVE && blackCheck) return POSITION_ILLEGAL;
 
-    if (whiteCheck)
-        return POSITION_WHITE_CHECKED;
-    else if (blackCheck)
-        return POSITION_BLACK_CHECKED;
+    if (SideToMove == BLACK_TO_MOVE && whiteCheck) return false; // illegal
+    if (SideToMove == WHITE_TO_MOVE && blackCheck) return false;
 
-    return POSITION_LEGAL;
+    return true;
+}
+
+bool Board::IsStalemate() const
+{
+    // 50 move rule
+    if (NoCaptureOrPush >= 50) return true;
+
+    // threefold rep.
+    int numberOfRepetitions = 1;
+
+    const Board* board = this->LastBoard; 
+    for (int i = 0; i < 100; i++)
+    {
+        if (board == nullptr)
+        {
+            break;
+        }
+
+        /*
+        *   Detect same position based on Zobrist hash
+        *   Not ideal, enpassant square etc. are also in hash, 
+        *   therefore position where enpassant could be made is not seen as equal.
+        *   but enpassant can kiss my ass so idc
+        */
+        if (Zobrist == board->Zobrist)
+        {
+            numberOfRepetitions++;
+        }
+
+        if (numberOfRepetitions >= 3)
+        {
+            return true;
+        }
+
+        if (board->NoCaptureOrPush == 0)
+        {
+            break;
+        }
+
+        board = board->LastBoard;
+
+        if (board == board->LastBoard || board == nullptr)
+        {
+            break;
+        }
+
+        if (i == 99)
+        {
+            LOG("IsStalemate() has run for 100 iterations (probably loop in lastBoard pointers)");
+        }
+    }
+
+    //material
+    bool sufficientMaterial = false;
+    if (BitBoards[PW] | BitBoards[RW] | BitBoards[QW] | BitBoards[PB] | BitBoards[RB] | BitBoards[QB])
+    {
+        // at least one winning piece
+        sufficientMaterial = true;
+    }
+    else if (countBits(BitBoards[BW]) > 1 || countBits(BitBoards[BB]) > 1)
+    {
+        // at least two bishops
+        sufficientMaterial = true;
+    }
+    else if ((BitBoards[BW] != 0 && BitBoards[NW] != 0) || (BitBoards[BB] != 0 && BitBoards[NB] != 0))
+    {
+        // one or more bishops and one or more knights
+        sufficientMaterial = true;
+    }
+
+    return !sufficientMaterial;
 }
 
 void Board::Init()
@@ -282,7 +382,7 @@ void Board::Init()
     // CHECK CHECK
     if (BitBoards[KW] & UnsafeForWhite)
         Checks |= CHECK_WHITE;
-    if (BitBoards[KB] & UnsafeForBlack) // not sure could be "else if"
+    else if (BitBoards[KB] & UnsafeForBlack)
         Checks |= CHECK_BLACK;
 }
 

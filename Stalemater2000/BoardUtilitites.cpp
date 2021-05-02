@@ -11,6 +11,18 @@ std::string Board::MoveToText(int m, bool onlyMove)
     int to = (m >> 8) & 0xFF; // same;
     std::string msg = IndexToText(from) + IndexToText(to);
 
+    if (m & MOVE_TYPE_PROMOTE)
+    {
+        if (m & MOVE_INFO_PROMOTE_QUEEN)
+            msg += 'q';
+        else if (m & MOVE_INFO_PROMOTE_ROOK)
+            msg += 'r';
+        else if (m & MOVE_INFO_PROMOTE_HORSEY)
+            msg += 'n';
+        else if (m & MOVE_INFO_PROMOTE_BISHOP)
+            msg += 'b';
+    }
+
     if (!onlyMove)
     {
         if (m & MOVE_TYPE_PAWN_HOPP)
@@ -61,123 +73,157 @@ std::string Board::IndexToText(int index)
 
 int Board::TextToIndex(const std::string& text)
 {
-    int index = (int)text[0] + (int)text[1] * 8 - 489;
+    if (text.length() < 2)
+    {
+        return -1;
+    }
+
+    std::string lowerCase(text); 
+    for (int i = 0; lowerCase[i] != '\0'; i++)
+    {
+        if (lowerCase[i] >= 'A' && lowerCase[i] <= 'Z')
+        {
+            lowerCase[i] = lowerCase[i] + 'a' - 'A';
+        }
+    }
+    
+    //           file starting at 'a'      rank starting at '1' * 8
+    int index = (int)lowerCase[0] - 'a' + (int)(lowerCase[1] - '1') * 8;
     if (index < 0 || index > 63)
         return -1;
     return index;
 }
 
-Board Board::FromFEN(const std::string& fenInput)
+Board Board::FromFEN(const std::vector<std::string> &arguments, int startIndex)
 {
-    std::regex regular_exp("((^|\\/)[PRBNQKprbnqk\\d]+){8}\\s[WwBb]\\s([KQkq]{1,4}|\\-)\\s(([AaBbCcDdEeFfGgHh]\\d)|\\-)");
-    std::smatch sm;
-    std::regex_search(fenInput, sm, regular_exp);
-    if (sm.size() == 0)
-        return Board();
-    std::string fen = sm[0];
+    //std::regex regular_exp("((^|\\/)[PRBNQKprbnqk\\d]+){8}\\s[WwBb]\\s([KQkq]{1,4}|\\-)\\s(([AaBbCcDdEeFfGgHh]\\d)|\\-)");
+    //std::smatch sm;
+    //std::regex_search(fenInput, sm, regular_exp);
+    //if (sm.size() == 0)
+    //    return Board();
+    //std::string fen = sm[0];
 
     Board board = Board();
 
-    // PIECE POSITIONS
-    int i = 0, j = 7; // decrease j so that LSB is A0 and not A7 like in FEN
-    char srchString[] = "PRNBQKprnbqk12345678/";
-    int strIndex = 0;
+    int argumentIndex = startIndex;
+
+    // only so that i can break out of block
     while (true)
     {
-        const char* fenChar = strchr(srchString, fen[strIndex++]);
-        if (fenChar == NULL)
-        {
-            break; // end of piece description
-        }
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& piecePositions = arguments[argumentIndex];
+        argumentIndex++;
 
-        int charIndex = fenChar - srchString;
-        if (charIndex < 12) // letter
+        // PIECE POSITIONS
+        int i = 0, j = 7; // decrease j so that LSB is A0 and not A7 like in FEN
+        char srchString[] = "PRNBQKprnbqk12345678/";
+        int strIndex = 0;
+        while (true)
         {
-            if (i < 8) // safety if too many chars
+            const char* fenChar = strchr(srchString, piecePositions[strIndex++]);
+            if (fenChar == NULL)
             {
-                // piece hit, set bit
-                board.BitBoards[charIndex] |= 1ULL << (8 * j + i);
-                i++;
+                break; // end of piece description
+            }
+
+            int charIndex = fenChar - srchString;
+            if (charIndex < 12) // letter
+            {
+                if (i < 8) // safety if too many chars
+                {
+                    // piece hit, set bit
+                    board.BitBoards[charIndex] |= 1ULL << (8 * j + i);
+                    i++;
+                }
+            }
+            else if (charIndex < 20) // number
+            {
+                i += charIndex - 11;
+            }
+            else // '/'
+            {
+                i = 0; j--;
+                if (j < 0)
+                {
+                    break;
+                }
             }
         }
-        else if (charIndex < 20) // number
+
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& sideToMove = arguments[argumentIndex];
+        argumentIndex++;
+
+        // SideToMove
+        if (sideToMove == "w")
+            board.SideToMove = WHITE_TO_MOVE;
+        else if (sideToMove == "b")
+            board.SideToMove = BLACK_TO_MOVE;
+        else
         {
-            i += charIndex - 11;
+            break;
         }
-        else // '/'
+
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& castling = arguments[argumentIndex];
+        argumentIndex++;
+
+        // Castling
+        for (int i = 0; i < castling.length(); i++)
         {
-            i = 0; j--;
-            if (j < 0)
+            char ca = castling[i];
+
+            switch (ca)
             {
+            case 'K':
+                board.Castling |= CASTLE_KW;
+                break;
+            case 'Q':
+                board.Castling |= CASTLE_QW;
+                break;
+            case 'k':
+                board.Castling |= CASTLE_KB;
+                break;
+            case 'q':
+                board.Castling |= CASTLE_QB;
                 break;
             }
         }
-    }
 
-    // safety
-    if (strIndex >= fen.length())
-    {
-        board.GenerateZobrist();
-        board.Init();
-        return board;
-    }
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& enpas = arguments[argumentIndex];
+        argumentIndex++;
 
-    // SideToMove
-    char c = fen[strIndex++];
-    if (c == 'w')
-        board.SideToMove = WHITE_TO_MOVE;
-    else
-        board.SideToMove = BLACK_TO_MOVE;
-
-    if (++strIndex >= fen.length())
-    {
-        board.GenerateZobrist();
-        board.Init();
-        return board;
-    }
-
-    // Castling
-    while (true)
-    {
-        c = fen[strIndex++];
-        if (c == ' ')
-            break;
-
-        switch (c)
+        // enpassant square
+        int square = Board::TextToIndex(enpas);
+        if (square >= 0 && square < 64)
         {
-        case 'K':
-            board.Castling |= CASTLE_KW;
-            break;
-        case 'Q':
-            board.Castling |= CASTLE_QW;
-            break;
-        case 'k':
-            board.Castling |= CASTLE_KB;
-            break;
-        case 'q':
-            board.Castling |= CASTLE_QB;
-            break;
+            board.EnpassantTarget = 1ULL << square;
         }
-    }
 
-    if (strIndex >= fen.length())
-    {
-        board.GenerateZobrist();
-        board.Init();
-        return board;
-    }
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& halfMoveClock = arguments[argumentIndex];
+        argumentIndex++;
 
-    // enpassant square
-    c = fen[strIndex++];
-    if (c != '-')
-    {
-        int enpas = 0;
-        char lowCase = tolower(c);
-        enpas = (int)lowCase - 97;
-        c = fen[strIndex++];
-        enpas += 8 * ((int)c - 49);
-        if (enpas >= 0 && enpas < 64)
-            board.EnpassantTarget = 1ULL << enpas;
+        // halfmoveclocl
+        int hmc = std::stoi(halfMoveClock);
+        if (hmc > 0)
+        {
+            board.NoCaptureOrPush = hmc;
+        }
+
+        if (argumentIndex >= arguments.size()) break;
+        const std::string& fullMoves = arguments[argumentIndex];
+        argumentIndex++;
+
+        // full moves
+        int fm = std::stoi(fullMoves);
+        if (fm > 0)
+        {
+            board.FullMovesCount = fm;
+        }
+
+        break;
     }
 
     board.GenerateZobrist();
@@ -278,6 +324,9 @@ void Board::Print() const
 
     std::cout << "  -------------------\n";
     std::cout << "    a b c d e f g h  \n\n";
+
+    std::cout << "Halfmove clock: " << NoCaptureOrPush << "\n";
+    std::cout << "Fullmove number: " << FullMovesCount << "\n\n";
 
     std::cout << "FEN: " << ToFEN() << "\n";
     std::cout << "Hash: " << std::hex << Zobrist << std::dec << "\n\n";

@@ -11,143 +11,6 @@
 constexpr char const* ENGINENAME = "Stalemater2000";
 
 using namespace std;
-#include <mutex>
-#include <atomic>
-
-//https://stackoverflow.com/questions/16592357/non-blocking-stdgetline-exit-if-no-input
-//This code works perfectly well on Windows 10 in Visual Studio 2015 c++ Win32 Console Debug and Release mode.
-//If it doesn't work in your OS or environment, that's too bad; guess you'll have to fix it. :(
-//You are free to use this code however you please, with one exception: no plagiarism!
-//(You can include this in a much bigger project without giving any credit.)
-class AsyncGetline
-{
-public:
-    //AsyncGetline is a class that allows for asynchronous CLI getline-style input
-    //(with 0% CPU usage!), which normal iostream usage does not easily allow.
-    AsyncGetline()
-    {
-        input = "";
-        sendOverNextLine = true;
-        continueGettingInput = true;
-
-        //Start a new detached thread to call getline over and over again and retrieve new input to be processed.
-        thread([&]()
-            {
-                //Non-synchronized string of input for the getline calls.
-                string synchronousInput;
-                char nextCharacter;
-
-                //Get the asynchronous input lines.
-                do
-                {
-                    //Start with an empty line.
-                    synchronousInput = "";
-
-                    //Process input characters one at a time asynchronously, until a new line character is reached.
-                    while (continueGettingInput)
-                    {
-                        //See if there are any input characters available (asynchronously).
-                        while (cin.peek() == EOF)
-                        {
-                            //Ensure that the other thread is always yielded to when necessary. Don't sleep here;
-                            //only yield, in order to ensure that processing will be as responsive as possible.
-                            this_thread::yield();
-                        }
-
-                        //Get the next character that is known to be available.
-                        nextCharacter = cin.get();
-
-                        //Check for new line character.
-                        if (nextCharacter == '\n')
-                        {
-                            break;
-                        }
-
-                        //Since this character is not a new line character, add it to the synchronousInput string.
-                        synchronousInput += nextCharacter;
-                    }
-
-                    //Be ready to stop retrieving input at any moment.
-                    if (!continueGettingInput)
-                    {
-                        break;
-                    }
-
-                    //Wait until the processing thread is ready to process the next line.
-                    while (continueGettingInput && !sendOverNextLine)
-                    {
-                        //Ensure that the other thread is always yielded to when necessary. Don't sleep here;
-                        //only yield, in order to ensure that the processing will be as responsive as possible.
-                        this_thread::yield();
-                    }
-
-                    //Be ready to stop retrieving input at any moment.
-                    if (!continueGettingInput)
-                    {
-                        break;
-                    }
-
-                    //Safely send the next line of input over for usage in the processing thread.
-                    inputLock.lock();
-                    input = synchronousInput;
-                    inputLock.unlock();
-
-                    //Signal that although this thread will read in the next line,
-                    //it will not send it over until the processing thread is ready.
-                    sendOverNextLine = false;
-                } while (continueGettingInput && input != "exit");
-            }).detach();
-    }
-
-    //Stop getting asynchronous CLI input.
-    ~AsyncGetline()
-    {
-        //Stop the getline thread.
-        continueGettingInput = false;
-    }
-
-    //Get the next line of input if there is any; if not, sleep for a millisecond and return an empty string.
-    string GetLine()
-    {
-        //See if the next line of input, if any, is ready to be processed.
-        if (sendOverNextLine)
-        {
-            //Don't consume the CPU while waiting for input; this_thread::yield()
-            //would still consume a lot of CPU, so sleep must be used.
-            this_thread::sleep_for(chrono::milliseconds(1));
-
-            return "";
-        }
-        else
-        {
-            //Retrieve the next line of input from the getline thread and store it for return.
-            inputLock.lock();
-            string returnInput = input;
-            inputLock.unlock();
-
-            //Also, signal to the getline thread that it can continue
-            //sending over the next line of input, if available.
-            sendOverNextLine = true;
-
-            return returnInput;
-        }
-    }
-
-private:
-    //Cross-thread-safe boolean to tell the getline thread to stop when AsyncGetline is deconstructed.
-    atomic<bool> continueGettingInput;
-
-    //Cross-thread-safe boolean to denote when the processing thread is ready for the next input line.
-    //This exists to prevent any previous line(s) from being overwritten by new input lines without
-    //using a queue by only processing further getline input when the processing thread is ready.
-    atomic<bool> sendOverNextLine;
-
-    //Mutex lock to ensure only one thread (processing vs. getline) is accessing the input string at a time.
-    mutex inputLock;
-
-    //string utilized safely by each thread due to the inputLock mutex.
-    string input;
-};
 
 void tokenize(std::string const& str, const char delim, std::vector<std::string>& out)
 {
@@ -235,23 +98,10 @@ int main()
     std::srand(time(0));
 
     string command;
-    AsyncGetline ag;
 
     while (true)
     {
-        command = ag.GetLine();
-        if (command.empty())
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
-            std::string computerMsg = Computer::GetMessage();
-            if (computerMsg.length() > 0)
-            {
-                cout << computerMsg;
-            }
-
-            continue;
-        }
+        getline(std::cin, command);
 
         vector<string> arguments;
         tokenize(command, ' ', arguments);
@@ -292,18 +142,16 @@ int main()
                             board = Board::Default();
                         else if (arguments[1] == "fen")
                         {
-                            string fen = "";
-                            for (i = 2; i < arguments.size(); i++)
-                            {
-                                if (arguments[i] == "moves")
-                                    break;
-                                fen += arguments[i] + " ";
-                            }
-                            board = Board::FromFEN(fen);
+                            board = Board::FromFEN(arguments, 2);
                         }
 
-                        if (i < arguments.size())
+                        while (true)
                         {
+                            if (i >= arguments.size())
+                            {
+                                break;
+                            }
+
                             if (arguments[i] == "moves")
                             {
                                 i++;
@@ -343,8 +191,13 @@ int main()
 
                                         if ((pm & 0xFFFF) == (move & 0xFFFF)) // match from, to and info (for promotion)
                                         {
-                                            if (move & MOVE_TYPE_PROMOTE && !((pm & 0xFF000000) == (move & 0xFF000000)))
-                                                continue; // info must only match if type is promote
+                                            if (pm & MOVE_TYPE_PROMOTE)
+                                            {
+                                                if (!((pm & 0xFF000000) == (move & 0xFF000000)))
+                                                {
+                                                    continue; // info must only match if type is promote
+                                                }
+                                            }
 
                                             LOG("Move: " + Board::MoveToText(move, false));
                                             board = board.Move(pm); // use pseudo move so that the type is included
@@ -352,8 +205,16 @@ int main()
                                         }
                                     }
                                 }
+
+                                //std::vector<std::string> testFen = { "3R4/1K6/8/4R3/8/8/8/6k1", "w", "-", "-", "2", "2" };
+                                //Board testBoard = Board::FromFEN(testFen, 0);
+
+                                break;
                             }
+
+                            i++;
                         }
+
                     }
                     else
                         LOG("Invalid command! expected: position <startpos | fen> <moves>");
@@ -402,6 +263,17 @@ int main()
                                 board.GenerateLegalMoves(moves);
                                 for (const MOVE& m : moves)
                                     cout << Board::MoveToText(m.second, false) << endl;
+                            }
+                            else if (arguments[1] == "stalemate")
+                            {
+                                if (board.IsStalemate())
+                                {
+                                    cout << "Position is stalemate\n";
+                                }
+                                else
+                                {
+                                    cout << "Position is not stalemate\n";
+                                }
                             }
                         }
                     }
