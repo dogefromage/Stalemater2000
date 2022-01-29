@@ -6,4 +6,4 @@ Stalemater2000 uses bitboards and alpha-beta search to quickly find the best mov
 
 The bitboard logic I used was really well explained in [this Youtube series by Logic Crazy Chess](https://www.youtube.com/watch?v=V_2-LOvr5E8&list=PLQV5mozTHmacMeRzJCW_8K3qw2miYqd0c).
 
-Also, everything you'd ever would want to know about chess programming can be found on the [chess programming wiki](www.chessprogramming.org).
+Also, everything you'd ever would want to know about chess programming can be found on the [chess programming wiki](https://www.chessprogramming.org).
