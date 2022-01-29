@@ -287,14 +287,16 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
 Score Computer::quiescence(const Board& board, Score alpha, Score beta)
 {
     Score standPat = Evaluation::evaluate(board); // evaluate, since no more captures
+    nodesEvaluated++;
+
     if (board.SideToMove == BLACK_TO_MOVE)
         standPat = -standPat;
-    nodesEvaluated++;
+
     if (standPat >= beta)
     {
         // prune
         branchesPruned++;
-        return beta;
+        return standPat;
     }
     if (standPat > alpha)
     {

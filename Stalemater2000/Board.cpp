@@ -382,7 +382,7 @@ void Board::Init()
     // CHECK CHECK
     if (BitBoards[KW] & UnsafeForWhite)
         Checks |= CHECK_WHITE;
-    else if (BitBoards[KB] & UnsafeForBlack)
+    if (BitBoards[KB] & UnsafeForBlack)
         Checks |= CHECK_BLACK;
 }
 
