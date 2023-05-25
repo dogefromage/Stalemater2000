@@ -1,21 +1,38 @@
 ﻿#include "Computer.h"
 #include <iostream>
 #include <vector>
-#include <string>
-#include <algorithm>
-#include <tuple>
-#include <queue>
-#include <mutex>
+#include <array>
 
-#define U64 unsigned long long
-
+/*
 bool Computer::Working = false;
 
 std::unordered_map<U64, int> Computer::BestMoveTable;
 std::unordered_map<U64, Position> Computer::PositionTable;
+*/
 
-void Computer::AddMessage(std::string msg)
-{
+void Computer::stop() {
+    std::cerr << "Implement stop" << std::endl;
+}
+
+bool Computer::isWorking() {
+    std::cerr << "Implement isWorking" << std::endl;
+    return false;
+}
+
+void Computer::launchTest(ComputerTests testType, int depth) {
+    std::cerr << "Implement launchTest" << std::endl;
+}
+
+void Computer::launchSearch(
+    std::array<std::int64_t, (size_t)LongSearchParameters::SIZE> longParams,
+    std::array<bool, (size_t)BoolSearchParameters::SIZE> boolParams,
+    std::vector<LanMove> searchmoves
+) {    
+    std::cerr << "Implement launchSearch" << std::endl;
+}
+
+/*
+void Computer::AddMessage(std::string msg) {
     std::cout << msg;
 }
 
@@ -46,7 +63,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
         if (!Working)
         {
-            LOG("computer stopped");
+            // LOG("computer stopped");
             break;
         }
 
@@ -87,13 +104,13 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
         for (int pvDepth = 0; pvDepth < depth; pvDepth++)
         {
-            auto entry = BestMoveTable.find(pvBoard.Zobrist);
+            auto entry = BestMoveTable.find(pvBoard.zobrist);
             if (entry == BestMoveTable.end())
             {
-                message += DEBUGMESSAGE("no entry ");
+                // message += DEBUGMESSAGE("no entry ");
                 break;
             }
-            pvBoard = pvBoard.Move(entry->second);
+            pvBoard = pvBoard.movePseudo(entry->second);
 
             if (pvDepth == 0)
             {
@@ -102,28 +119,28 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
             if (entry->second != 0)
             {
-                if (pvBoard.IsLegal())
+                if (pvBoard.isLegal())
                 {
-                    message += Board::MoveToText(entry->second, true) + " ";
+                    message += Board::moveToString(entry->second, true) + " ";
                 }
                 else
                 {
-                    message += DEBUGMESSAGE("move is illegal ");
+                    // message += DEBUGMESSAGE("move is illegal ");
                 }
             }
             else
             {
-                message += DEBUGMESSAGE("move is zero ");
+                // message += DEBUGMESSAGE("move is zero ");
             }
         }
 
         message += "\n";
         AddMessage(message);
         
-        LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
-        LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
-        LOG("MATES FOUND: " + std::to_string(matesFound));
-        LOG("BRANCHES PRUNED: " + std::to_string(branchesPruned));
+        // LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
+        // LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
+        // LOG("MATES FOUND: " + std::to_string(matesFound));
+        // LOG("BRANCHES PRUNED: " + std::to_string(branchesPruned));
 
         if (seesMate)
         {
@@ -133,11 +150,11 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
     if (bestMove)
     {
-        AddMessage("bestmove " + Board::MoveToText(bestMove, true) + "\n");
+        AddMessage("bestmove " + Board::moveToString(bestMove, true) + "\n");
     }
     else
     {
-        LOG("resign");
+        // LOG("resign");
     }
 
     PositionTable.clear();
@@ -157,12 +174,12 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
     Score bestScore = -SCORE_CHECKMATE;
 
     int bestMove = 0;
-    std::vector<MOVE> pseudoMoves;
-    board.GeneratePseudoMoves(pseudoMoves);
+    MoveList pseudoMoves;
+    board.generatePseudoMoves(pseudoMoves);
     Board nextBoard;
 
     int pvMove = 0;
-    auto pvMoveEntry = BestMoveTable.find(board.Zobrist);
+    auto pvMoveEntry = BestMoveTable.find(board.zobrist);
     if (pvMoveEntry != BestMoveTable.end())
     {
         pvMove = pvMoveEntry->second;
@@ -179,13 +196,13 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
         }
         else
         {
-            move = pseudoMoves[i - 1].second;
+            move = pseudoMoves[i - 1];
             if (move == pvMove)
                 continue; // duplicate
         }
 
-        nextBoard = board.Move(move);
-        if (!nextBoard.IsLegal())
+        nextBoard = board.movePseudo(move);
+        if (!nextBoard.isLegal())
             continue; // illegal
 
         Score score;
@@ -193,7 +210,7 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
         bool validTransposition = false;
 
         // has entry?
-        auto boardEntry = PositionTable.find(board.Zobrist);
+        auto boardEntry = PositionTable.find(board.zobrist);
         if (boardEntry != Computer::PositionTable.end())
         {
             if (boardEntry->second.depth >= remainingDepth)
@@ -245,22 +262,22 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
         }
     }
 
-    bool stalemate = board.IsStalemate(); // evalates remaining pieces or threefold repetition
+    bool stalemate = board.isStalemate(); // evalates remaining pieces or threefold repetition
 
     if (pseudoMoves.size() == 0)
     {
         matesFound++;
 
-        if (board.SideToMove == WHITE_TO_MOVE)
+        if (board.sideToMove == WHITE_TO_MOVE)
         {
-            if ( !(board.Checks & CHECK_WHITE) ) // white has no moves but is not in check
+            if ( !(board.checks & CHECK_WHITE) ) // white has no moves but is not in check
             {
                 stalemate = true;
             }
         }
         else
         {
-            if (!(board.Checks & CHECK_BLACK)) // same here
+            if (!(board.checks & CHECK_BLACK)) // same here
             {
                 stalemate = true;
             }
@@ -270,7 +287,7 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
     {
         if (Computer::Working)
         {
-            BestMoveTable[board.Zobrist] = bestMove;
+            BestMoveTable[board.zobrist] = bestMove;
         }
     }
 
@@ -279,7 +296,7 @@ Score Computer::search(const Board& board, int remainingDepth, Score alpha, Scor
         bestScore = 0;
     }
 
-    PositionTable[board.Zobrist] = { bestScore, (short)remainingDepth };
+    PositionTable[board.zobrist] = { bestScore, (short)remainingDepth };
 
     return bestScore;
 }
@@ -289,7 +306,7 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
     Score standPat = Evaluation::evaluate(board); // evaluate, since no more captures
     nodesEvaluated++;
 
-    if (board.SideToMove == BLACK_TO_MOVE)
+    if (board.sideToMove == BLACK_TO_MOVE)
         standPat = -standPat;
 
     if (standPat >= beta)
@@ -303,16 +320,14 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
         alpha = standPat;
     }
 
-    std::vector<MOVE> captures;
-    board.GenerateCaptures(captures);
+    MoveList captures;
+    board.generatePseudoCaptures(captures);
     Board nextBoard;
 
-    for (const MOVE &m : captures)
+    for (const Move move : captures)
     {
-        int move = m.second;
-        
-        nextBoard = board.Move(move);
-        if (!nextBoard.IsLegal())
+        nextBoard = board.movePseudo(move);
+        if (!nextBoard.isLegal())
             continue; // illegal
 
         // here, directly evaluating is faster than looking up transpositions from the table
@@ -340,4 +355,42 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
     return alpha;
 }
 
-#undef U64
+
+
+
+void manageTime(long long remainingTime)
+{
+    LOG("remaining: " + std::to_string(remainingTime));
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    long long waitTime = remainingTime / 10LL;
+    if (waitTime > 10000LL)
+    {
+        waitTime = 8000LL + (std::rand() % 4000LL);
+    }
+
+    while (true)
+    {
+        auto stop = std::chrono::high_resolution_clock::now();
+        long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
+
+        if (!Computer::Working)
+        {
+            break;
+        }
+
+        if (duration > waitTime) // % of all the time
+        {
+            LOG("TIME MANAGER HAS HALTED SEARCH BECAUSE TIME USED UP");
+            LOG("Remaining time: " + to_string(remainingTime) + ", search duration: " + to_string(duration));
+            Computer::Working = false;
+
+            break;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
+*/

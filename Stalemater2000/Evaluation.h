@@ -1,20 +1,18 @@
 #pragma once
-#include "Board.h"
+#include "HashBoard.h"
+#include "boardlabels.h"
 
-#define U64 unsigned long long
-
-#define Score short
+typedef short Score;
 constexpr Score SCORE_CHECKMATE = 30000;
 
-// SOME VALUES AND TABLES //https://www.chessprogramming.org/Simplified_Evaluation_Function
+// https://www.chessprogramming.org/Simplified_Evaluation_Function
 
-constexpr Score PIECE_VALUES[] =
-{
+constexpr Score PIECE_VALUES[] = {
     100, 500, 320, 330, 900, 2000
 };
 
-constexpr Score PIECE_SQUARE_TABLE[] =
-{
+/*
+constexpr Score PIECE_SQUARE_TABLE[] = {
     // pawn
      0,  0,  0,  0,  0,  0,  0,  0,
     50, 50, 50, 50, 50, 50, 50, 50,
@@ -103,10 +101,11 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] =
     99, 99, 99, 99, 99, 99, 99, 99, 99 // prevent out of range
 };
 
-struct Evaluation
+*/
+
+class Evaluation
 {
 public:
-    static Score evaluate(const Board& board);
+    static Score evaluate(const HashBoard& board);
 };
 
-#undef U64

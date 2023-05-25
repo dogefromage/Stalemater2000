@@ -88,6 +88,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -102,6 +103,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,6 +120,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,6 +137,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:/mingw64/mingw64/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,33 +148,35 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Board.cpp">
-      <DeploymentContent>true</DeploymentContent>
-    </ClCompile>
-    <ClCompile Include="BitMath.cpp">
-      <DeploymentContent>true</DeploymentContent>
-    </ClCompile>
-    <ClCompile Include="BoardUtilitites.cpp" />
+    <ClCompile Include="bitmath.cpp" />
     <ClCompile Include="Computer.cpp">
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
     <ClCompile Include="ComputerUtilities.cpp" />
-    <ClCompile Include="Debug.h" />
     <ClCompile Include="Evaluation.cpp" />
     <ClCompile Include="Evaluation.h">
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
-    <ClCompile Include="MoveGeneration.cpp" />
+    <ClCompile Include="GameHistory.cpp" />
+    <ClCompile Include="HashBoard.cpp" />
+    <ClCompile Include="movegen.cpp" />
+    <ClCompile Include="moves.cpp" />
+    <ClCompile Include="Position.cpp" />
     <ClCompile Include="Stalemater2000.cpp">
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
+    <ClCompile Include="UCI.cpp" />
     <ClCompile Include="Zobrist.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Bitmath.h" />
-    <ClInclude Include="Board.h" />
+    <ClInclude Include="bitmath.h" />
+    <ClInclude Include="boardlabels.h" />
     <ClInclude Include="Computer.h" />
-    <ClInclude Include="Position.h" />
+    <ClInclude Include="GameHistory.h" />
+    <ClInclude Include="HashBoard.h" />
+    <ClInclude Include="moves.h" />
+    <ClInclude Include="GamePosition.h" />
+    <ClInclude Include="UCI.h" />
     <ClInclude Include="Zobrist.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

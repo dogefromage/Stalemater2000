@@ -1,26 +1,45 @@
 #pragma once
-#include <thread>
-#include <chrono>
-#include <time.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <queue>
-
-#include "Board.h"
-#include "Debug.h"
-#include "Position.h"
+#include <array>
+#include <vector>
+#include "HashBoard.h"
 #include "Evaluation.h"
 
-#define U64 unsigned long long
+typedef struct Position {
+    Score score;
+    short depth;
+} Position;
 
-class Computer
-{
+enum class ComputerTests {
+    Perft,
+    Zobrist,
+};
+enum class LongSearchParameters {
+    wtime, btime, winc, binc, movestogo, depth, nodes, mate, movetime,
+    SIZE,
+};
+enum class BoolSearchParameters {
+    infinite, ponder,
+    SIZE,
+};
+
+class Computer {
 public:
-    static bool Working;
+    void stop();
+    bool isWorking();
+
+    void launchTest(ComputerTests testType, int depth);
+    void launchSearch(
+        std::array<std::int64_t, (size_t)LongSearchParameters::SIZE> longParams,
+        std::array<bool, (size_t)BoolSearchParameters::SIZE> boolParams,
+        std::vector<LanMove> searchmoves
+    );
+
+    // static bool Working;
+
+private:
+    /*
     static std::unordered_map<U64, int> BestMoveTable;
     static std::unordered_map<U64, Position> PositionTable;
-
-    static std::string GetMessage();
 
     static void AddMessage(std::string msg);
 
@@ -30,7 +49,6 @@ public:
     
     static void ZobristTest(Board board, int depth);
 
-private:
     static std::queue<std::string> messages;
 
     static int randomMove(Board& board);
@@ -41,7 +59,7 @@ private:
 
     static void perftThread(Board board, int depth, int index);
 
-    static unsigned long long perft(Board& board, int depth);
+    static uint64_t perft(Board& board, int depth);
+    */
 };
 
-#undef U64

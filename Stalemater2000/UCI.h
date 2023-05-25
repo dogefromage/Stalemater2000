@@ -1,0 +1,29 @@
+#pragma once
+#include <list>
+#include <string>
+#include "Computer.h"
+#include "GameHistory.h"
+
+class UCI
+{
+public:
+	UCI();
+	void writeTokenizedCommand(std::list<std::string>& tokenizedLine);
+
+private:
+	GameHistory game;
+	Computer computer;
+	
+	// https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
+	void handleUci(std::list<std::string>& params);
+	void handleIsReady(std::list<std::string>& params);
+	void handleUciNewGame(std::list<std::string>& params);
+	void handleGo(std::list<std::string>& params);
+	void handlePosition(std::list<std::string>& params);
+	void handleDisplay(std::list<std::string>& params);
+	void handleStop(std::list<std::string>& params);
+	void handleQuit(std::list<std::string>& params);
+
+	void printError(std::string msg) const;
+};
+

@@ -1,17 +1,17 @@
 #include "Computer.h"
+#include <iostream>
 
-#define U64 unsigned long long
-
-int Computer::randomMove(Board& board)
-{
+/*
+int Computer::randomMove(Board& board) {
     srand(time(NULL));
 
-    std::vector<MOVE> moves;
-    board.GenerateLegalMoves(moves);
-    if (moves.size() == 0)
-        return 0;
+    MoveList moves;
+    board.generateLegalMoves(moves);
+    if (moves.size() == 0) {
+        return -1;
+    }
     int index = rand() % moves.size();
-    return moves[index].second;
+    return moves[index];
 }
 
 static unsigned long long* s_perftResults = NULL;
@@ -25,9 +25,9 @@ void Computer::PerftAnalysis(Board board, int depth)
     auto start = std::chrono::high_resolution_clock::now();
 
     // root perft multithreaded
-    std::vector<MOVE> legalMoves;
+    MoveList legalMoves;
     legalMoves.reserve(40);
-    board.GenerateLegalMoves(legalMoves);
+    board.generateLegalMoves(legalMoves);
     int numberOfThreads = legalMoves.size();
     std::thread* threads = new std::thread[numberOfThreads];
     s_perftResults = new unsigned long long[numberOfThreads];
@@ -37,7 +37,7 @@ void Computer::PerftAnalysis(Board board, int depth)
 
     for (int i = 0; i < numberOfThreads; i++)
     {
-        Board nextBoard = board.Move(legalMoves[i].second);
+        Board nextBoard = board.movePseudo(legalMoves[i]);
         threads[i] = std::thread(Computer::perftThread, nextBoard, depth - 1, i);
     }
 
@@ -53,11 +53,11 @@ void Computer::PerftAnalysis(Board board, int depth)
         return;
     }
 
-    unsigned long long totalNodes = 0;
+    std::uint64_t totalNodes = 0;
     for (int i = 0; i < numberOfThreads; i++)
     {
         unsigned long long nodes = s_perftResults[i];
-        std::cout << Board::MoveToText(legalMoves[i].second, true) << ", " << nodes << " Node(s)\n";
+        std::cout << Board::moveToString(legalMoves[i], true) << ", " << nodes << " Node(s)\n";
         totalNodes += nodes;
     }
 
@@ -73,67 +73,64 @@ void Computer::PerftAnalysis(Board board, int depth)
 
 void Computer::perftThread(Board board, int depth, int index)
 {
-    unsigned long long result = perft(board, depth);
+    std::uint64_t result = perft(board, depth);
     s_perftResults[index] = result;
     s_threadsFinished++;
 }
 
-unsigned long long Computer::perft(Board& board, int depth)
+std::uint64_t Computer::perft(Board& board, int depth)
 {
-    if (depth == 0)
+    if (depth == 0) {
         return 1;
-
-    int moves = 0;
-    std::vector<MOVE> pseudoMoves;
-    pseudoMoves.reserve(40);
-    board.GeneratePseudoMoves(pseudoMoves);
-    Board nextBoard;
-    for (const MOVE& m : pseudoMoves)
-    {
-        if (!Computer::Working)
-            break;
-
-        nextBoard = board.Move(m.second);
-        if (!nextBoard.IsLegal())
-            continue; // illegal move
-
-        moves += perft(nextBoard, depth - 1); // recurse
     }
 
+    int moves = 0;
+    MoveList pseudoMoves;
+    pseudoMoves.reserve(40);
+    board.generatePseudoMoves(pseudoMoves);
+    Board nextBoard;
+    for (const Move& m : pseudoMoves) {
+        if (!Computer::Working) {
+            break;
+        }
+        nextBoard = board.movePseudo(m);
+        if (!nextBoard.isLegal()) {
+            continue; // illegal move
+        }
+        moves += perft(nextBoard, depth - 1); // recurse
+    }
     return moves;
 }
 
-static void ZobristRecurse(const Board& board, std::vector<int>& moveList, int depth)
-{
-    if (depth == 0)
+static void ZobristRecurse(const Board& board, std::vector<int>& moveList, int depth) {
+    if (depth == 0) {
         return;
-
-    std::vector<MOVE> pseudoMoves;
+    }
+    MoveList pseudoMoves;
     pseudoMoves.reserve(40);
-    board.GeneratePseudoMoves(pseudoMoves);
+    board.generatePseudoMoves(pseudoMoves);
     Board nextBoard;
-    for (const MOVE& m : pseudoMoves)
+    for (const Move& m : pseudoMoves)
     {
         if (!Computer::Working)
             break;
-
-        nextBoard = board.Move(m.second);
-        if (!nextBoard.IsLegal())
+        nextBoard = board.movePseudo(m);
+        if (!nextBoard.isLegal())
             continue; // illegal move
 
-        moveList.push_back(m.second);
+        moveList.push_back(m);
 
         // CHECK ZOBRIST HASHS
         Board fenBoard = board; // copy
-        fenBoard.GenerateZobrist();
+        fenBoard.generateZobristFromStart();
 
-        if (fenBoard.Zobrist != board.Zobrist)
+        if (fenBoard.zobrist != board.zobrist)
         {
             std::cout << "Wrong zobrist detected: \n";
-            std::cout << std::hex << board.Zobrist << ", " << fenBoard.Zobrist << std::dec << "\nmoves:";
+            std::cout << std::hex << board.zobrist << ", " << fenBoard.zobrist << std::dec << "\nmoves:";
             for (int m : moveList)
             {
-                std::cout << Board::MoveToText(m, true) << " ";
+                std::cout << Board::moveToString(m, true) << " ";
             }
             std::cout << std::endl;
         }
@@ -153,4 +150,4 @@ void Computer::ZobristTest(Board board, int depth)
     Computer::Working = false;
 }
 
-#undef U64
+*/

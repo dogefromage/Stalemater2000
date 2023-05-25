@@ -1,10 +1,7 @@
-#include "BitMath.h"
-
-#define U64 unsigned long long
+#include "bitmath.h"
 
 //https://stackoverflow.com/questions/45221914/number-of-trailing-zeroes
-int trailingZeros(U64 x)
-{
+int trailingZeros(U64 x) {
 	int n;
 	if (x == 0) return 64;
 	n = 1;
@@ -35,17 +32,13 @@ U64 reverse(U64 n)
 	return rev;
 }
 
-unsigned int countBits(U64 n)
-{
+unsigned int countBits(U64 n) {
 	if (n == 0) return 0;
-
 	int i = 0;
-	for (int j = 0; j < 8; j++)
-	{
+	for (int j = 0; j < 8; j++) {
 		i += NUMBER_OF_BITS[n & 0xFF];
 		n >>= 8;
 	}
 	return i;
 }
 
-#undef U64

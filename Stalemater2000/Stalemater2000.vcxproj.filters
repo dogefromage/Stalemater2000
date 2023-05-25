@@ -10,25 +10,10 @@
     <ClCompile Include="Stalemater2000.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Board.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Computer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Zobrist.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MoveGeneration.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BitMath.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BoardUtilitites.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Debug.h">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Evaluation.h">
@@ -40,22 +25,43 @@
     <ClCompile Include="ComputerUtilities.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UCI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bitmath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameHistory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HashBoard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="movegen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="moves.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Position.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Board.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Bitmath.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Computer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Zobrist.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Position.h">
+    <ClInclude Include="UCI.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="bitmath.h" />
+    <ClInclude Include="boardlabels.h" />
+    <ClInclude Include="GameHistory.h" />
+    <ClInclude Include="HashBoard.h" />
+    <ClInclude Include="moves.h" />
+    <ClInclude Include="GamePosition.h" />
   </ItemGroup>
 </Project>

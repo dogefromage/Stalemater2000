@@ -1,6 +1,5 @@
 #pragma once
-
-#define U64 unsigned long long
+#include "boardlabels.h"
 
 // ????????????
 // https://www.techiedelight.com/reverse-bits-integer-using-lookup-table/
@@ -30,4 +29,3 @@ int trailingZeros(U64 x);
 
 void popLSB(U64& bb);
 
-#undef U64

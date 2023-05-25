@@ -1,18 +1,18 @@
 #include "Evaluation.h"
+#include "bitmath.h"
+#include "HashBoard.h"
 
-#define U64 unsigned long long
-
-Score evaluateBalance(const Board& board)
-{
+Score evaluateBalance(const HashBoard& board) {
     Score eval = 0;
-    for (int i = 0; i < 5; i++)
-    {
-        Score balance = countBits(board.BitBoards[i]) - countBits(board.BitBoards[i + 6]);
+    for (int i = 0; i < 5; i++) {
+        Score balance = countBits(board.getBoard((BitBoards)i)) 
+                      - countBits(board.getBoard((BitBoards)(i + 6)));
         eval += PIECE_VALUES[i] * balance;
     }
     return eval;
 }
 
+/*
 Score evaluatePiecePositions(const Board& board, float endgameFactor)
 {
     Score eval = 0;
@@ -22,7 +22,7 @@ Score evaluatePiecePositions(const Board& board, float endgameFactor)
     for (int b = 0; b < 6; b++)
     {
         // pull bitboard
-        U64 bb = board.BitBoards[b];
+        U64 bb = board.boards[b];
         if (b == 5)
         {
             int tableOffset = b * 64 + 63;
@@ -51,7 +51,7 @@ Score evaluatePiecePositions(const Board& board, float endgameFactor)
     for (int b = 0; b < 6; b++)
     {
         // pull bitboard
-        U64 bb = board.BitBoards[b + 6];
+        U64 bb = board.boards[b + 6];
 
         if (b == 5)
         {
@@ -83,14 +83,14 @@ Score evaluatePiecePositions(const Board& board, float endgameFactor)
 
 Score evaluateMobility(const Board& board)
 {
-    Score mob = countBits(board.UnsafeForWhite);
-    mob -= countBits(board.UnsafeForBlack);
+    Score mob = countBits(board.unsafeForWhite);
+    mob -= countBits(board.unsafeForBlack);
     return (3 * mob);
 }
 
 Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhite)
 {
-    const U64& pawns = isWhite ? board.BitBoards[PW] : board.BitBoards[PB];
+    const U64& pawns = isWhite ? board.boards[PW] : board.boards[PB];
     U64 p;
 
     int doubled, blocked, isolated, chained;
@@ -116,10 +116,10 @@ Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhit
 
     // blocked
     p = isWhite ? (pawns << 8) : (pawns >> 8);
-    blocked = countBits(p & board.Occupied);
+    blocked = countBits(p & board.occupied);
 
     // isolated (not guarded)
-    p = pawns & ~(isWhite ? board.UnsafeForBlack : board.UnsafeForWhite);
+    p = pawns & ~(isWhite ? board.unsafeForBlack : board.unsafeForWhite);
     isolated = countBits(p);
 
     // chained
@@ -137,17 +137,17 @@ Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhit
     }
     
     Score totalPawnsEval =
-        +   chained
-        -   doubled
-        -   blocked
-        -   isolated;
+        + chained
+        - doubled
+        - blocked
+        - isolated;
     
     return totalPawnsEval;
 }
 
 Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
 {
-    const U64& king = isWhite ? board.BitBoards[KW] : board.BitBoards[KB];
+    const U64& king = isWhite ? board.boards[KW] : board.boards[KB];
 
     int kingIndex = trailingZeros(king);
     // directly stolen from horse move generation
@@ -163,9 +163,9 @@ Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
     for (int b = 0; b < 6; b++)
     {
         if (isWhite)
-            attackers = kingZone & board.BitBoards[b + 6];
+            attackers = kingZone & board.boards[b + 6];
         else
-            attackers = kingZone & board.BitBoards[b];
+            attackers = kingZone & board.boards[b];
 
         while (attackers)
         {
@@ -177,7 +177,7 @@ Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
     directDanger = directDanger * KING_NUMBER_ATTACKERS_WEIGHT[numAttackers] / 100; // apply weight
 
     // indirect danger -> unsafe squares
-    U64 unsafeBoard = isWhite ? board.UnsafeForWhite : board.UnsafeForBlack;
+    U64 unsafeBoard = isWhite ? board.unsafeForWhite : board.unsafeForBlack;
     int unsafeSquares = countBits(unsafeBoard & kingZone);
 
     int kingCenterPosition = 0;
@@ -198,15 +198,21 @@ Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
 
     return totalKingSafety;
 }
+*/
 
-Score Evaluation::evaluate(const Board& board)
+Score Evaluation::evaluate(const HashBoard& board)
 {
     Score eval = 0;
-    int totalPopulation = countBits(board.Occupied);
+
+    /*
+    int totalPopulation = countBits(board.occupied);
     float endgameFactor = 1.0f - (totalPopulation / 32.0f);
+    */
 
     // balance
     eval += evaluateBalance(board);
+
+    /*
 
 
     // piece positions
@@ -220,16 +226,17 @@ Score Evaluation::evaluate(const Board& board)
     //eval += evaluateKingSafety(board, endgameFactor, true);
     //eval -= evaluateKingSafety(board, endgameFactor, false);
 
+    
     // has castled
-    if (board.HasCastled & WHITE_HAS_CASTLED) eval += 40;
-    if (board.HasCastled & BLACK_HAS_CASTLED) eval -= 40;
+    if (board.hasCastled & WHITE_HAS_CASTLED) eval += 40;
+    if (board.hasCastled & BLACK_HAS_CASTLED) eval -= 40;
+
     // can castle
-    if (board.Castling & CASTLE_KW) eval += 10;
-    if (board.Castling & CASTLE_QW) eval += 8;
-    if (board.Castling & CASTLE_KB) eval -= 10;
-    if (board.Castling & CASTLE_QB) eval -= 8;
+    if (board.castling & CASTLE_KW) eval += 10;
+    if (board.castling & CASTLE_QW) eval += 8;
+    if (board.castling & CASTLE_KB) eval -= 10;
+    if (board.castling & CASTLE_QB) eval -= 8;
+    */
 
     return eval;
 }
-
-#undef U64
