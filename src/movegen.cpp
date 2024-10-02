@@ -1,5 +1,5 @@
-#include "HashBoard.h"
 #include "bitmath.h"
+#include "board.h"
 
 /*
 void Board::generateLegalMoves(MoveList& moveList) const {
@@ -16,29 +16,29 @@ void Board::generateLegalMoves(MoveList& moveList) const {
 }
 */
 
-void HashBoard::generatePseudoMoves(MoveList& moveList) {
+void Board::generatePseudoMoves(MoveList& moveList) {
     moveList.reserve(42);
     useDerivedState();
 
-    genKnightMoves(moveList); // horseys
-    genKingMoves(moveList); // king
+    genKnightMoves(moveList);  // horseys
+    genKingMoves(moveList);    // king
 
     if (side == Side::White) {
-        genMovesSlidingPieces(moveList, BitBoards::BW, false, true); // bishops
-        genMovesSlidingPieces(moveList, BitBoards::RW, true, false); // rooks
-        genMovesSlidingPieces(moveList, BitBoards::QW, true, true); // queens
-        genPawnMovesWhite(moveList); // pawns
-        genCastlesWhite(moveList); // castles
+        genMovesSlidingPieces(moveList, BitBoards::BW, false, true);  // bishops
+        genMovesSlidingPieces(moveList, BitBoards::RW, true, false);  // rooks
+        genMovesSlidingPieces(moveList, BitBoards::QW, true, true);   // queens
+        genPawnMovesWhite(moveList);                                  // pawns
+        genCastlesWhite(moveList);                                    // castles
     } else {
-        genMovesSlidingPieces(moveList, BitBoards::BB, false, true); // bishops
-        genMovesSlidingPieces(moveList, BitBoards::RB, true, false); // rooks
-        genMovesSlidingPieces(moveList, BitBoards::QB, true, true); // queens
-        genPawnMovesBlack(moveList); // pawns
-        genCastlesBlack(moveList); // castles
+        genMovesSlidingPieces(moveList, BitBoards::BB, false, true);  // bishops
+        genMovesSlidingPieces(moveList, BitBoards::RB, true, false);  // rooks
+        genMovesSlidingPieces(moveList, BitBoards::QB, true, true);   // queens
+        genPawnMovesBlack(moveList);                                  // pawns
+        genCastlesBlack(moveList);                                    // castles
     };
 }
 
-void HashBoard::genCastlesWhite(MoveList& moveList) const {
+void Board::genCastlesWhite(MoveList& moveList) const {
     if (castlingRights & (1 << (int)CastlingTypes::WhiteKing)) {
         bool lineUnderAttack = _unsafeForWhite & CASTLE_MASK_W_K_PATH;
         bool obstructed = _occupied & CASTLE_MASK_W_K_GAP;
@@ -55,7 +55,7 @@ void HashBoard::genCastlesWhite(MoveList& moveList) const {
     }
 }
 
-void HashBoard::genCastlesBlack(MoveList& moveList) const {
+void Board::genCastlesBlack(MoveList& moveList) const {
     if (castlingRights & (1 << (int)CastlingTypes::BlackKing)) {
         bool lineUnderAttack = _unsafeForBlack & CASTLE_MASK_B_K_PATH;
         bool obstructed = _occupied & CASTLE_MASK_B_K_GAP;
@@ -72,15 +72,15 @@ void HashBoard::genCastlesBlack(MoveList& moveList) const {
     }
 }
 
-void HashBoard::genMovesSlidingPieces(MoveList& moveList, BitBoards bb, bool paral, bool diag) const {
-    const U64& validToSquares = 
+void Board::genMovesSlidingPieces(MoveList& moveList, BitBoards bb, bool paral, bool diag) const {
+    const U64& validToSquares =
         ~(side == Side::White ? _whitePieces : _blackPieces);
     U64 boardValue = boards[(int)bb];
 
     int i = 0;
     while (boardValue) {
         i = trailingZeros(boardValue);
-        boardValue ^= 1ULL << i; // unset this bit
+        boardValue ^= 1ULL << i;  // unset this bit
         // -> piece at i
         U64 moves = 0;
         // find all moves
@@ -93,7 +93,7 @@ void HashBoard::genMovesSlidingPieces(MoveList& moveList, BitBoards bb, bool par
     }
 }
 
-void HashBoard::genKingMoves(MoveList& moveList) const {
+void Board::genKingMoves(MoveList& moveList) const {
     bool isWhite = side == Side::White;
     BitBoards bb = isWhite ? BitBoards::KW : BitBoards::KB;
     U64 king = boards[(int)bb];
@@ -102,22 +102,23 @@ void HashBoard::genKingMoves(MoveList& moveList) const {
     const U64& validForBlack = ~(_blackPieces | _unsafeForBlack);
     const U64& validToSquares = isWhite ? validForWhite : validForBlack;
 
-    while (king)
-    {
+    while (king) {
         int i = trailingZeros(king);
-        king ^= 1ULL << i; // somehow necessary if multiple kings...
+        king ^= 1ULL << i;  // somehow necessary if multiple kings...
         // -> piece at i
         int offset = i - SPAN_KING_OFFSET;
-        U64 moves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  moves &= ~FILE_H;
-        else            moves &= ~FILE_A;
+        U64 moves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            moves &= ~FILE_H;
+        else
+            moves &= ~FILE_A;
         moves &= validToSquares;
         // add to list
         addMovesFromBitboard(moveList, moves, i, bb);
     }
 }
 
-void HashBoard::genKnightMoves(MoveList& moveList) const {
+void Board::genKnightMoves(MoveList& moveList) const {
     bool isWhite = side == Side::White;
     BitBoards bb = isWhite ? BitBoards::NW : BitBoards::NB;
     U64 horse = boards[(int)bb];
@@ -125,23 +126,24 @@ void HashBoard::genKnightMoves(MoveList& moveList) const {
         ~(isWhite ? _whitePieces : _blackPieces);
 
     int i = 0;
-    while (horse)
-    {
+    while (horse) {
         i = trailingZeros(horse);
-        horse ^= 1ULL << i; // unset this bit
+        horse ^= 1ULL << i;  // unset this bit
         // -> piece at i
         int offset = i - SPAN_HORSE_OFFSET;
-        U64 moves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  moves &= ~FILE_GH;
-        else            moves &= ~FILE_AB;
-        
+        U64 moves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            moves &= ~FILE_GH;
+        else
+            moves &= ~FILE_AB;
+
         moves &= validToSquares;
         // add to list
         addMovesFromBitboard(moveList, moves, i, bb);
     }
 }
 
-void HashBoard::genPawnMovesWhite(MoveList& moveList) const {
+void Board::genPawnMovesWhite(MoveList& moveList) const {
     const U64& pawns = boards[(int)BitBoards::PW];
     U64 pawnMoves;
     U64 empty = ~_occupied;
@@ -158,7 +160,7 @@ void HashBoard::genPawnMovesWhite(MoveList& moveList) const {
     addMovesFromBitboardAbsolute(moveList, pawnMoves, 8, BitBoards::PW, MoveTypes::Normal);
     // Forward two
     pawnMoves = (((pawns << 8) & empty) << 8) & WHITE_SIDE & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, 16, BitBoards::PW, MoveTypes::PawnDouble); // add move type
+    addMovesFromBitboardAbsolute(moveList, pawnMoves, 16, BitBoards::PW, MoveTypes::PawnDouble);  // add move type
 
     // Promote diag left
     pawnMoves = (pawns << 7) & ~FILE_H & RANK_8 & _blackPieces;
@@ -171,7 +173,7 @@ void HashBoard::genPawnMovesWhite(MoveList& moveList) const {
     addMovesFromBitboardPawnPromote(moveList, pawnMoves, 8, BitBoards::PW);
 }
 
-void HashBoard::genPawnMovesBlack(MoveList& moveList) const {
+void Board::genPawnMovesBlack(MoveList& moveList) const {
     const U64& pawns = boards[(int)BitBoards::PB];
     U64 pawnMoves;
     U64 empty = ~_occupied;
@@ -188,7 +190,7 @@ void HashBoard::genPawnMovesBlack(MoveList& moveList) const {
     addMovesFromBitboardAbsolute(moveList, pawnMoves, -8, BitBoards::PB, MoveTypes::Normal);
     // Forward two
     pawnMoves = (((pawns >> 8) & empty) >> 8) & BLACK_SIDE & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, -16, BitBoards::PB, MoveTypes::PawnDouble); // add move type
+    addMovesFromBitboardAbsolute(moveList, pawnMoves, -16, BitBoards::PB, MoveTypes::PawnDouble);  // add move type
 
     // Promote diag left
     pawnMoves = (pawns >> 7) & ~FILE_A & RANK_1 & _whitePieces;
@@ -202,7 +204,7 @@ void HashBoard::genPawnMovesBlack(MoveList& moveList) const {
 }
 
 // maybe use table for this part
-U64 HashBoard::getHAndVMoves(int index) const {
+U64 Board::getHAndVMoves(int index) const {
     U64 s = 1ULL << index;
     int i = index % 8, j = index / 8;
 
@@ -212,7 +214,7 @@ U64 HashBoard::getHAndVMoves(int index) const {
     return (horizontal & RANK_MASKS[j]) | (vertical & FILE_MASKS[i]);
 }
 
-U64 HashBoard::getDandAntiDMoves(int index) const {
+U64 Board::getDandAntiDMoves(int index) const {
     U64 s = 1ULL << index;
     int d = (index / 8) + (index % 8);
     int ad = (index / 8) + 7 - (index % 8);
@@ -223,20 +225,20 @@ U64 HashBoard::getDandAntiDMoves(int index) const {
     return (diag & DIAG_MASK[d]) | (antiDiag & ANTIDIAG_MASK[ad]);
 }
 
-void HashBoard::addMovesFromBitboard(MoveList& moves, U64 destinations, int position, BitBoards bb) {
+void Board::addMovesFromBitboard(MoveList& moves, U64 destinations, int position, BitBoards bb) {
     int i = 0;
     while (destinations) {
         i = trailingZeros(destinations);
-        destinations ^= 1ULL << i; // unset this bit
+        destinations ^= 1ULL << i;  // unset this bit
         moves.push_back(GenMove(position, i, MovePromotions::None, bb, MoveTypes::Normal));
     }
 }
 
-void HashBoard::addMovesFromBitboardPawnPromote(MoveList& moves, U64 movedBoard, int offset, BitBoards bb) {
+void Board::addMovesFromBitboardPawnPromote(MoveList& moves, U64 movedBoard, int offset, BitBoards bb) {
     int i = 0;
     while (movedBoard) {
         i = trailingZeros(movedBoard);
-        movedBoard ^= 1ULL << i; // unset this bit
+        movedBoard ^= 1ULL << i;  // unset this bit
         moves.push_back(GenMove(i - offset, i, MovePromotions::Q, bb, MoveTypes::Promote));
         moves.push_back(GenMove(i - offset, i, MovePromotions::R, bb, MoveTypes::Promote));
         moves.push_back(GenMove(i - offset, i, MovePromotions::N, bb, MoveTypes::Promote));
@@ -244,11 +246,11 @@ void HashBoard::addMovesFromBitboardPawnPromote(MoveList& moves, U64 movedBoard,
     }
 }
 
-void HashBoard::addMovesFromBitboardAbsolute(MoveList& moves, U64 movedBoard, int offset, BitBoards bb, MoveTypes type) {
+void Board::addMovesFromBitboardAbsolute(MoveList& moves, U64 movedBoard, int offset, BitBoards bb, MoveTypes type) {
     int i = 0;
     while (movedBoard) {
         i = trailingZeros(movedBoard);
-        movedBoard ^= 1ULL << i; // unset this bit
+        movedBoard ^= 1ULL << i;  // unset this bit
 
         moves.push_back(GenMove(i - offset, i, MovePromotions::None, bb, type));
     }

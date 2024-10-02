@@ -1,5 +1,6 @@
-#include "Computer.h"
 #include <iostream>
+
+#include "computer.h"
 
 /*
 int Computer::randomMove(Board& board) {

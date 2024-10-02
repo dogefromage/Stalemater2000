@@ -2,9 +2,9 @@
 #include <iostream>
 
 std::string LanMove::toString() const {
-    std::string msg = squareIndexToString(from()) + squareIndexToString(to());
+    std::string msg = squareIndexToString(from) + squareIndexToString(to);
 
-    switch (promotion()) {
+    switch (promotion) {
     case MovePromotions::Q: msg += "q"; break;
     case MovePromotions::R: msg += "r"; break;
     case MovePromotions::N: msg += "n"; break;
@@ -57,18 +57,22 @@ std::optional<int> LanMove::parseSquareIndex(const std::string& squareName) {
 }
 
 std::string GenMove::toString() const {
-    std::string msg = LanMove::squareIndexToString(from()) 
-                    + LanMove::squareIndexToString(to());
+    std::string msg = LanMove::squareIndexToString(from) 
+                    + LanMove::squareIndexToString(to);
 
-    switch (promotion()) {
+    switch (promotion) {
     case MovePromotions::Q: msg += "q"; break;
     case MovePromotions::R: msg += "r"; break;
     case MovePromotions::N: msg += "n"; break;
     case MovePromotions::B: msg += "b"; break;
     }
     
-    msg += " (bb=" + std::to_string((int)bitboard())
-        + ", type=" + std::to_string((int)movetype()) + ")";
+    msg += " (bb=" + std::to_string((int)bb)
+        + ", type=" + std::to_string((int)type) + ")";
 
     return msg;
+}
+
+LanMove GenMove::toLanMove() const {
+    return LanMove(from, to, promotion);
 }

@@ -1,6 +1,6 @@
 #pragma once
-#include "HashBoard.h"
-#include "boardlabels.h"
+#include "board.h"
+#include "labels.h"
 
 typedef short Score;
 constexpr Score SCORE_CHECKMATE = 30000;
@@ -8,8 +8,7 @@ constexpr Score SCORE_CHECKMATE = 30000;
 // https://www.chessprogramming.org/Simplified_Evaluation_Function
 
 constexpr Score PIECE_VALUES[] = {
-    100, 500, 320, 330, 900, 2000
-};
+    100, 500, 320, 330, 900, 2000};
 
 /*
 constexpr Score PIECE_SQUARE_TABLE[] = {
@@ -103,9 +102,4 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] =
 
 */
 
-class Evaluation
-{
-public:
-    static Score evaluate(const HashBoard& board);
-};
-
+Score evaluate(const Board& board);

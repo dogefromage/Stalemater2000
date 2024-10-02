@@ -1,12 +1,12 @@
-#include "UCI.h"
+#include "uci.h"
 #include "moves.h"
 #include <iostream>
 #include <optional>
 #include <array>
-#include "GameHistory.h"
-#include "GamePosition.h"
+#include "history.h"
+#include "position.h"
 
-const std::string ENGINENAME = "Stalemater2000";
+const std::string ENGINE_NAME = "Stalemater2000";
 
 std::optional<std::string> nextKeyword(std::list<std::string>& keywords, const std::string& expectedToken) {
     if (keywords.empty()) {
@@ -33,9 +33,8 @@ std::optional<int> nextInteger(std::list<std::string>& keywords, const std::stri
 }
 
 UCI::UCI() {
-	std::cout << ENGINENAME << std::endl;
-	game = GameHistory();
-    computer = Computer();
+	std::cout << ENGINE_NAME << std::endl;
+	hist = History();
 }
 
 void UCI::writeTokenizedCommand(std::list<std::string>& tokenizedLine) {
@@ -53,6 +52,7 @@ void UCI::writeTokenizedCommand(std::list<std::string>& tokenizedLine) {
     else if (firstToken == "ucinewgame") handleUciNewGame(tokenizedLine);
     else if (firstToken == "d")          handleDisplay(tokenizedLine);
     else if (firstToken == "quit")       handleQuit(tokenizedLine);
+    else if (firstToken == "movelist")   handleMovelist(tokenizedLine);
     else {
         std::cout << "Unknown command entered \"" << firstToken << "\"" << std::endl;
     }
@@ -60,7 +60,7 @@ void UCI::writeTokenizedCommand(std::list<std::string>& tokenizedLine) {
 
 void UCI::handleUci(std::list<std::string>& params)
 {
-    std::cout << "id name " << ENGINENAME << std::endl;
+    std::cout << "id name " << ENGINE_NAME << std::endl;
     std::cout << "id author dogefromage" << std::endl;
     std::cout << "uciok" << std::endl;
 }
@@ -89,7 +89,7 @@ void UCI::handleGo(std::list<std::string>& params)
             if (isPerft)   testType = ComputerTests::Perft;
             if (isZobrist) testType = ComputerTests::Zobrist;
 
-            computer.launchTest(testType, depth.value());
+            launchTest(hist.current(), testType, depth.value());
             return;
         }
     }
@@ -153,18 +153,16 @@ void UCI::handleGo(std::list<std::string>& params)
         printError("Unknown search param: " + param + "\n");
     }
 
-    computer.launchSearch(longParams, boolParams, searchMoves);
+    launchSearch(hist.current(), longParams, boolParams, searchMoves);
 }
 
 void UCI::handlePosition(std::list<std::string>& params) {
-    GameHistory nextGame;
-
     std::optional<std::string> positionTypeOpt = nextKeyword(params, "startpos|fen");
     if (!positionTypeOpt.has_value()) return;
     std::string positionType = positionTypeOpt.value();
 
     if (positionType == "startpos") {
-        nextGame = GameHistory(GamePosition::startPos());
+        hist = History(Position::startPos());
     } else if (positionType == "fen") {
         std::vector<std::string> fenTokens;
         while (!params.empty()) {
@@ -175,7 +173,7 @@ void UCI::handlePosition(std::list<std::string>& params) {
             fenTokens.push_back(nextPart);
             params.pop_front();
         }
-        nextGame = GameHistory(GamePosition::fromFen(fenTokens));
+        hist = History(Position::fromFen(fenTokens));
     }
     
     if (params.empty()) {
@@ -193,14 +191,12 @@ void UCI::handlePosition(std::list<std::string>& params) {
         if (!move.has_value()) {
             return;
         }
-        bool success = nextGame.tryMoveLan(move.value());
+        bool success = hist.tryMoveLan(move.value());
         if (!success) {
             printError("Could not execute move: " + move.value().toString() + "\n");
             return;
         }
     }
-
-    game = nextGame;
 }
 
 void UCI::handleDisplay(std::list<std::string>& params) {
@@ -216,15 +212,34 @@ void UCI::handleDisplay(std::list<std::string>& params) {
         }
     }
 
-    game.current().print(moves);
+    hist.current().print(moves);
 }
 
 void UCI::handleStop(std::list<std::string>& params) {
-    computer.stop();
+    stopComputer();
 }
 
 void UCI::handleQuit(std::list<std::string>& params) {
     exit(EXIT_SUCCESS);
+}
+
+void UCI::handleMovelist(std::list<std::string>& params) {
+    MoveList all, legal;
+    hist.current().board.generatePseudoMoves(all);
+
+    for (GenMove& m : all) {
+        Position next(hist.current());
+        next.movePseudoInPlace(m);
+        if (next.board.isLegal()) {
+            legal.push_back(m);
+        }
+    }
+
+    std::cout << "Legal moves:" << std::endl;
+
+    for (GenMove& m : legal) {
+        std::cout << m.toString() << std::endl;
+    }
 }
 
 constexpr auto TERMINAL_RESET = "\033[0m";

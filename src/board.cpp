@@ -1,8 +1,10 @@
-#include "HashBoard.h"
+#include "board.h"
+
 #include <cassert>
+
 #include "bitmath.h"
 
-void HashBoard::forbidCastling(CastlingTypes castling) {
+void Board::forbidCastling(CastlingTypes castling) {
     assert(0 <= (int)castling && (int)castling < 4);
     int c = (int)castling;
     int mask = 1 << c;
@@ -12,31 +14,31 @@ void HashBoard::forbidCastling(CastlingTypes castling) {
     }
 }
 
-Side HashBoard::getSideToMove() const {
+Side Board::getSideToMove() const {
     return side;
 }
 
-U64 HashBoard::getBoard(BitBoards bb) const {
+U64 Board::getBoard(BitBoards bb) const {
     return boards[(int)bb];
 }
 
-bool HashBoard::getCastlingRight(CastlingTypes ct) const {
+bool Board::getCastlingRight(CastlingTypes ct) const {
     return (castlingRights & (1 << (int)ct)) != 0;
 }
 
-U64 HashBoard::getEnpassantTarget() const {
+U64 Board::getEnpassantTarget() const {
     return enpassantTarget;
 }
 
-U64 HashBoard::getHash() const {
+U64 Board::getHash() const {
     return hash;
 }
 
-bool HashBoard::hasCheck(CheckFlags checkingSide) const {
+bool Board::hasCheck(CheckFlags checkingSide) const {
     return (_checks & (int)checkingSide) != 0;
 }
 
-bool HashBoard::movePieceOrCapture(BitBoards bb, int from, int to) {
+bool Board::movePieceOrCapture(BitBoards bb, int from, int to) {
     useDerivedState();
 
     U64 fromMask = 1ULL << from;
@@ -54,11 +56,11 @@ bool HashBoard::movePieceOrCapture(BitBoards bb, int from, int to) {
                 // turn captured bit off
                 removePiece((BitBoards)i, to);
                 isCapture = true;
-                break; // only one capture possible :)
+                break;  // only one capture possible :)
             }
         }
         // this would fail if occupied wrong or friendly fire capture
-        assert( isCapture ); 
+        assert(isCapture);
     }
     // more piece
     removePiece(bb, from);
@@ -67,26 +69,26 @@ bool HashBoard::movePieceOrCapture(BitBoards bb, int from, int to) {
     return isCapture;
 }
 
-void HashBoard::placePiece(BitBoards bb, int square) {
+void Board::placePiece(BitBoards bb, int square) {
     // piece should not exists
-    assert( ~(boards[(int)bb] & (1ULL << square)) );
+    assert(~(boards[(int)bb] & (1ULL << square)));
     boards[(int)bb] |= 1ULL << square;
     hash ^= ZobristValues[64 * (int)bb + square];
 }
 
-void HashBoard::removePiece(BitBoards bb, int square) {
+void Board::removePiece(BitBoards bb, int square) {
     // piece should exist
-    assert( boards[(int)bb] & (1ULL << square) );
+    assert(boards[(int)bb] & (1ULL << square));
     boards[(int)bb] &= ~(1ULL << square);
     hash ^= ZobristValues[64 * (int)bb + square];
 }
 
-void HashBoard::switchSide() {
+void Board::switchSide() {
     side = (Side)((int)side ^ 1);
     hash ^= ZobristValues[ZOBRIST_BLACK_MOVE];
 }
 
-void HashBoard::setEnpassantTarget(U64 newTarget) {
+void Board::setEnpassantTarget(U64 newTarget) {
     if (enpassantTarget) {
         // remove last hash
         hash ^= ZobristValues[ZOBRIST_ENPASSANT + trailingZeros(enpassantTarget)];
@@ -98,8 +100,8 @@ void HashBoard::setEnpassantTarget(U64 newTarget) {
     }
 }
 
-void HashBoard::sanityCheck() {
-    assert( isLegal() );
+void Board::sanityCheck() {
+    assert(isLegal());
 
     // check square occupations
     for (int i = 0; i < 64; i++) {
@@ -108,7 +110,7 @@ void HashBoard::sanityCheck() {
         for (int j = 0; j < 12; j++) {
             if (boards[j] & mask) {
                 // only one piece can occupy a square
-                assert( !occupied );
+                assert(!occupied);
                 occupied = true;
             }
         }
@@ -123,16 +125,16 @@ void HashBoard::sanityCheck() {
     assert(countBits(boards[(int)BitBoards::KB]) == 1);
 }
 
-bool HashBoard::isLegal() {
+bool Board::isLegal() {
     useDerivedState();
     bool whiteCheck = _checks & (char)CheckFlags::WhiteInCheck;
     bool blackCheck = _checks & (char)CheckFlags::BlackInCheck;
-    if (side == Side::Black && whiteCheck) return false; // illegal
+    if (side == Side::Black && whiteCheck) return false;  // illegal
     if (side == Side::White && blackCheck) return false;
     return true;
 }
 
-void HashBoard::useDerivedState() {
+void Board::useDerivedState() {
     if (hash == _lastDerivedHash) {
         // board has not changed
         return;
@@ -156,7 +158,7 @@ void HashBoard::useDerivedState() {
     _lastDerivedHash = hash;
 }
 
-U64 HashBoard::getUnsafeForWhite() const {
+U64 Board::getUnsafeForWhite() const {
     U64 unsafe = 0;
     // pawns
     unsafe |= (boards[(int)BitBoards::PB] >> 7) & ~FILE_A;
@@ -166,7 +168,7 @@ U64 HashBoard::getUnsafeForWhite() const {
     U64 bishops = boards[(int)BitBoards::BB];
     while (bishops) {
         i = trailingZeros(bishops);
-        bishops ^= 1ULL << i; // unset this bit
+        bishops ^= 1ULL << i;  // unset this bit
         U64 bishopMoves = getDandAntiDMoves(i);
         unsafe |= bishopMoves;
     }
@@ -175,7 +177,7 @@ U64 HashBoard::getUnsafeForWhite() const {
     U64 rooks = boards[(int)BitBoards::RB];
     while (rooks) {
         i = trailingZeros(rooks);
-        rooks ^= 1ULL << i; // unset this bit
+        rooks ^= 1ULL << i;  // unset this bit
         unsafe |= getHAndVMoves(i);
     }
     // QUEENS
@@ -183,7 +185,7 @@ U64 HashBoard::getUnsafeForWhite() const {
     U64 queens = boards[(int)BitBoards::QB];
     while (queens) {
         i = trailingZeros(queens);
-        queens ^= 1ULL << i; // unset this bit
+        queens ^= 1ULL << i;  // unset this bit
         unsafe |= getHAndVMoves(i) | getDandAntiDMoves(i);
     }
     // HORSES
@@ -191,11 +193,13 @@ U64 HashBoard::getUnsafeForWhite() const {
     U64 horses = boards[(int)BitBoards::NB];
     while (horses) {
         i = trailingZeros(horses);
-        horses ^= 1ULL << i; // unset this bit
+        horses ^= 1ULL << i;  // unset this bit
         int offset = i - SPAN_HORSE_OFFSET;
-        U64 horseMoves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  horseMoves &= ~FILE_GH;
-        else            horseMoves &= ~FILE_AB;
+        U64 horseMoves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            horseMoves &= ~FILE_GH;
+        else
+            horseMoves &= ~FILE_AB;
         unsafe |= horseMoves;
     }
     // KING
@@ -203,17 +207,19 @@ U64 HashBoard::getUnsafeForWhite() const {
     U64 king = boards[(int)BitBoards::KB];
     if (king) {
         i = trailingZeros(king);
-        king ^= 1ULL << i; // unset this bit
+        king ^= 1ULL << i;  // unset this bit
         int offset = i - SPAN_KING_OFFSET;
-        U64 kingMoves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  kingMoves &= ~FILE_H;
-        else            kingMoves &= ~FILE_A;
+        U64 kingMoves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            kingMoves &= ~FILE_H;
+        else
+            kingMoves &= ~FILE_A;
         unsafe |= kingMoves;
     }
     return unsafe;
 }
 
-U64 HashBoard::getUnsafeForBlack() const {
+U64 Board::getUnsafeForBlack() const {
     U64 unsafe = 0;
     // pawns
     unsafe |= (boards[(int)BitBoards::PW] << 7) & ~FILE_H;
@@ -224,7 +230,7 @@ U64 HashBoard::getUnsafeForBlack() const {
     U64 bishops = boards[(int)BitBoards::BW];
     while (bishops) {
         i = trailingZeros(bishops);
-        bishops ^= 1ULL << i; // unset this bit
+        bishops ^= 1ULL << i;  // unset this bit
         U64 bishopMoves = getDandAntiDMoves(i);
         unsafe |= bishopMoves;
     }
@@ -233,7 +239,7 @@ U64 HashBoard::getUnsafeForBlack() const {
     U64 rooks = boards[(int)BitBoards::RW];
     while (rooks) {
         i = trailingZeros(rooks);
-        rooks ^= 1ULL << i; // unset this bit
+        rooks ^= 1ULL << i;  // unset this bit
         unsafe |= getHAndVMoves(i);
     }
     // QUEENS
@@ -241,7 +247,7 @@ U64 HashBoard::getUnsafeForBlack() const {
     U64 queens = boards[(int)BitBoards::QW];
     while (queens) {
         i = trailingZeros(queens);
-        queens ^= 1ULL << i; // unset this bit
+        queens ^= 1ULL << i;  // unset this bit
         unsafe |= getHAndVMoves(i) | getDandAntiDMoves(i);
     }
     // HORSES
@@ -249,11 +255,13 @@ U64 HashBoard::getUnsafeForBlack() const {
     U64 horses = boards[(int)BitBoards::NW];
     while (horses) {
         i = trailingZeros(horses);
-        horses ^= 1ULL << i; // unset this bit
+        horses ^= 1ULL << i;  // unset this bit
         int offset = i - SPAN_HORSE_OFFSET;
-        U64 horseMoves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  horseMoves &= ~FILE_GH;
-        else            horseMoves &= ~FILE_AB;
+        U64 horseMoves = offset > 0 ? SPAN_HORSE << offset : SPAN_HORSE >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            horseMoves &= ~FILE_GH;
+        else
+            horseMoves &= ~FILE_AB;
         unsafe |= horseMoves;
     }
     // KING
@@ -261,11 +269,13 @@ U64 HashBoard::getUnsafeForBlack() const {
     U64 king = boards[(int)BitBoards::KW];
     if (king) {
         i = trailingZeros(king);
-        king ^= 1ULL << i; // unset this bit
+        king ^= 1ULL << i;  // unset this bit
         int offset = i - SPAN_KING_OFFSET;
-        U64 kingMoves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset; // weird stuff happens when shifting by neg number
-        if (i % 8 < 4)  kingMoves &= ~FILE_H;
-        else            kingMoves &= ~FILE_A;
+        U64 kingMoves = offset > 0 ? SPAN_KING << offset : SPAN_KING >> -offset;  // weird stuff happens when shifting by neg number
+        if (i % 8 < 4)
+            kingMoves &= ~FILE_H;
+        else
+            kingMoves &= ~FILE_A;
         unsafe |= kingMoves;
     }
     return unsafe;

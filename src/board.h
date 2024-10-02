@@ -1,9 +1,9 @@
 #pragma once
-#include "Zobrist.h"
-#include "boardlabels.h"
+#include "hash.h"
+#include "labels.h"
 #include "moves.h"
 
-class HashBoard {
+class Board {
 public:
     Side getSideToMove() const;
     U64 getBoard(BitBoards bb) const;

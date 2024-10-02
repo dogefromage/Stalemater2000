@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
 #include <list>
-#include "UCI.h"
-#include "Zobrist.h"
+#include "uci.h"
+#include "hash.h"
 
 void tokenize(std::string const& str, const char delim, std::list<std::string>& out) {
     size_t start;

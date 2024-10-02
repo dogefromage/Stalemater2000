@@ -1,12 +1,12 @@
-#include "Evaluation.h"
-#include "bitmath.h"
-#include "HashBoard.h"
+#include "eval.h"
 
-Score evaluateBalance(const HashBoard& board) {
+#include "bitmath.h"
+#include "board.h"
+
+Score evaluateBalance(const Board& board) {
     Score eval = 0;
     for (int i = 0; i < 5; i++) {
-        Score balance = countBits(board.getBoard((BitBoards)i)) 
-                      - countBits(board.getBoard((BitBoards)(i + 6)));
+        Score balance = countBits(board.getBoard((BitBoards)i)) - countBits(board.getBoard((BitBoards)(i + 6)));
         eval += PIECE_VALUES[i] * balance;
     }
     return eval;
@@ -135,13 +135,13 @@ Score evaluatePawnStructure(const Board& board, float endgameFactor, bool isWhit
         chained += countBits(pawns & ((pawns << 7) & ~FILE_H));
         chained += countBits(pawns & ((pawns << 9) & ~FILE_A));
     }
-    
+
     Score totalPawnsEval =
         + chained
         - doubled
         - blocked
         - isolated;
-    
+
     return totalPawnsEval;
 }
 
@@ -191,7 +191,7 @@ Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
     }
     kingCenterPosition = (int)(kingCenterPosition * endgameFactor * endgameFactor * 5);
 
-    Score totalKingSafety = 
+    Score totalKingSafety =
         -   directDanger * 2
         -   unsafeSquares
         -   kingCenterPosition;
@@ -200,8 +200,7 @@ Score evaluateKingSafety(const Board& board, bool isWhite, float endgameFactor)
 }
 */
 
-Score Evaluation::evaluate(const HashBoard& board)
-{
+Score evaluate(const Board& board) {
     Score eval = 0;
 
     /*
@@ -226,7 +225,7 @@ Score Evaluation::evaluate(const HashBoard& board)
     //eval += evaluateKingSafety(board, endgameFactor, true);
     //eval -= evaluateKingSafety(board, endgameFactor, false);
 
-    
+
     // has castled
     if (board.hasCastled & WHITE_HAS_CASTLED) eval += 40;
     if (board.hasCastled & BLACK_HAS_CASTLED) eval -= 40;

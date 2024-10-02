@@ -1,7 +1,12 @@
-﻿#include "Computer.h"
+﻿#include "computer.h"
+
+#include <array>
+#include <atomic>
 #include <iostream>
 #include <vector>
-#include <array>
+#include "position.h"
+
+std::atomic<bool> isWorking = false;
 
 /*
 bool Computer::Working = false;
@@ -10,24 +15,92 @@ std::unordered_map<U64, int> Computer::BestMoveTable;
 std::unordered_map<U64, Position> Computer::PositionTable;
 */
 
-void Computer::stop() {
+long perft(Position curr, int depth) {
+    if (depth == 0) {
+        return 1;
+    }
+
+    long count = 0;
+    MoveList pseudoMoves;
+    pseudoMoves.reserve(40);
+    curr.board.generatePseudoMoves(pseudoMoves);
+
+    for (const GenMove& m : pseudoMoves) {
+        Position next(curr);
+        if (!isWorking) {
+            break;
+        }
+        next.movePseudoInPlace(m);
+        if (!next.board.isLegal()) {
+            continue; // illegal move
+        }
+        count += perft(next, depth - 1); // recurse
+    }
+    return count;
+}
+
+void launchPerft(Position root, int depth) {
+    isWorking = true;
+
+    long total = 0;
+
+    MoveList pseudoMoves;
+    pseudoMoves.reserve(40);
+    root.board.generatePseudoMoves(pseudoMoves);
+
+    for (const GenMove& m : pseudoMoves) {
+        Position next(root);
+        if (!isWorking) {
+            break;
+        }
+        next.movePseudoInPlace(m);
+        if (!next.board.isLegal()) {
+            continue; // illegal move
+        }
+        long moveScore = perft(next, depth - 1); // recurse
+        total += moveScore;
+
+        std::cout << m.toLanMove().toString() << " -> " << moveScore << std::endl;
+    }
+
+    std::cout << "Total: " << total << std::endl;
+
+    isWorking = false;
+}
+
+void launchZobrist(Position root, int depth) {
+    std::cerr << "Implement zobrist" << std::endl;
+}
+
+void stopComputer() {
     std::cerr << "Implement stop" << std::endl;
 }
 
-bool Computer::isWorking() {
-    std::cerr << "Implement isWorking" << std::endl;
-    return false;
+bool isComputerWorking() {
+    return isWorking;
 }
 
-void Computer::launchTest(ComputerTests testType, int depth) {
-    std::cerr << "Implement launchTest" << std::endl;
+void launchTest(Position root, ComputerTests testType, int depth) {
+    if (isWorking) {
+        std::cerr << "A task is already running." << std::endl;
+        return;
+    }
+
+    switch (testType) {
+        case ComputerTests::Perft:
+            launchPerft(root, depth);
+            break;
+        case ComputerTests::Zobrist:
+            launchZobrist(root, depth);
+            break;
+    }
 }
 
-void Computer::launchSearch(
+void launchSearch(
+    Position root,
     std::array<std::int64_t, (size_t)LongSearchParameters::SIZE> longParams,
     std::array<bool, (size_t)BoolSearchParameters::SIZE> boolParams,
-    std::vector<LanMove> searchmoves
-) {    
+    std::vector<LanMove> searchmoves) {
     std::cerr << "Implement launchSearch" << std::endl;
 }
 
@@ -44,7 +117,7 @@ static unsigned long long branchesPruned = 0;
 void Computer::ChooseMove(const Board &board, int maxDepth)
 {
     Working = true;
-        
+
     nodesEvaluated = 0;
     transpositionsSkipped = 0;
     matesFound = 0;
@@ -53,7 +126,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
     auto start = std::chrono::high_resolution_clock::now();
 
     int bestMove = 0;
-    
+
     for (int depth = 1; depth <= maxDepth; depth++)
     {
         Score score = search(board, depth, -SCORE_CHECKMATE - 1, SCORE_CHECKMATE + 1);
@@ -69,7 +142,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
         std::string message = "";
         message +=  "info depth " + std::to_string(depth);
-        
+
         bool seesMate = false;
         if (score > SCORE_CHECKMATE - 50)
         {
@@ -93,7 +166,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
         }
 
         message += " nodes " + std::to_string(nodesEvaluated);
-        
+
         if (duration > 0)
         {
             message += " nps " + std::to_string(nodesEvaluated * 1000 / duration);
@@ -136,7 +209,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
         message += "\n";
         AddMessage(message);
-        
+
         // LOG("NODES EVALUATED: " + std::to_string(nodesEvaluated));
         // LOG("TRANSPOSITIONS SKIPPED: " + std::to_string(transpositionsSkipped));
         // LOG("MATES FOUND: " + std::to_string(matesFound));
@@ -159,7 +232,7 @@ void Computer::ChooseMove(const Board &board, int maxDepth)
 
     PositionTable.clear();
     BestMoveTable.clear();
-    
+
     Working = false;
 }
 
@@ -345,7 +418,7 @@ Score Computer::quiescence(const Board& board, Score alpha, Score beta)
             branchesPruned++;
             return beta;
         }
-        
+
         if (score > alpha)
         {
             alpha = score;
