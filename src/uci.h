@@ -8,7 +8,8 @@
 class UCI {
    public:
     UCI();
-    void writeTokenizedCommand(std::list<std::string>& tokenizedLine);
+    void writeTokenizedCommand(std::string line);
+    void consumeOutput();
 
    private:
     History hist;
@@ -23,6 +24,4 @@ class UCI {
     void handleStop(std::list<std::string>& params);
     void handleQuit(std::list<std::string>& params);
     void handleMovelist(std::list<std::string>& params);
-
-    void printError(std::string msg) const;
 };

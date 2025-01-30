@@ -41,7 +41,6 @@ bool Board::hasCheck(CheckFlags checkingSide) const {
 bool Board::movePieceOrCapture(BitBoards bb, int from, int to) {
     useDerivedState();
 
-    U64 fromMask = 1ULL << from;
     U64 toMask = 1ULL << to;
     bool isCapture = false;
     // test capture

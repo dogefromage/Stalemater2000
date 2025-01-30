@@ -1,14 +1,25 @@
 #include "moves.h"
+
 #include <iostream>
 
 std::string LanMove::toString() const {
     std::string msg = squareIndexToString(from) + squareIndexToString(to);
 
     switch (promotion) {
-    case MovePromotions::Q: msg += "q"; break;
-    case MovePromotions::R: msg += "r"; break;
-    case MovePromotions::N: msg += "n"; break;
-    case MovePromotions::B: msg += "b"; break;
+        case MovePromotions::Q:
+            msg += "q";
+            break;
+        case MovePromotions::R:
+            msg += "r";
+            break;
+        case MovePromotions::N:
+            msg += "n";
+            break;
+        case MovePromotions::B:
+            msg += "b";
+            break;
+        case MovePromotions::None:
+            break;
     }
 
     return msg;
@@ -19,6 +30,9 @@ std::string LanMove::squareIndexToString(int index) {
 }
 
 std::optional<LanMove> LanMove::parseLanMove(const std::string& moveString) {
+    if (moveString.size() < 4) {
+        return std::nullopt;
+    }
     std::optional<int> s = parseSquareIndex(moveString.substr(0, 2));
     std::optional<int> t = parseSquareIndex(moveString.substr(2, 2));
     if (!s.has_value() || !t.has_value()) {
@@ -30,15 +44,23 @@ std::optional<LanMove> LanMove::parseLanMove(const std::string& moveString) {
     if (moveString.size() > 4) {
         char promote = tolower(moveString[4]);
         switch (promote) {
-        case 'q': promotion = MovePromotions::Q; break;
-        case 'b': promotion = MovePromotions::B; break;
-        case 'n': promotion = MovePromotions::N; break;
-        case 'r': promotion = MovePromotions::R; break;
-        default:
-            std::cerr << "Unknown promotion type: " << promote << std::endl;
+            case 'q':
+                promotion = MovePromotions::Q;
+                break;
+            case 'b':
+                promotion = MovePromotions::B;
+                break;
+            case 'n':
+                promotion = MovePromotions::N;
+                break;
+            case 'r':
+                promotion = MovePromotions::R;
+                break;
+            default:
+                std::cerr << "Unknown promotion type: " << promote << std::endl;
         }
     }
-    return { LanMove(s.value(), t.value(), promotion) };
+    return {LanMove(s.value(), t.value(), promotion)};
 }
 
 std::optional<int> LanMove::parseSquareIndex(const std::string& squareName) {
@@ -47,28 +69,35 @@ std::optional<int> LanMove::parseSquareIndex(const std::string& squareName) {
         return std::nullopt;
     }
     // file starting at 'a', rank starting at '1' * 8
-    int index = tolower(squareName[0]) - 'a'
-        + 8 * (squareName[1] - '1');
+    int index = tolower(squareName[0]) - 'a' + 8 * (squareName[1] - '1');
     if (index < 0 || index > 63) {
         std::cerr << "Invalid square: " << squareName << std::endl;
         return std::nullopt;
     }
-    return { index };
+    return {index};
 }
 
 std::string GenMove::toString() const {
-    std::string msg = LanMove::squareIndexToString(from) 
-                    + LanMove::squareIndexToString(to);
+    std::string msg = LanMove::squareIndexToString(from) + LanMove::squareIndexToString(to);
 
     switch (promotion) {
-    case MovePromotions::Q: msg += "q"; break;
-    case MovePromotions::R: msg += "r"; break;
-    case MovePromotions::N: msg += "n"; break;
-    case MovePromotions::B: msg += "b"; break;
+        case MovePromotions::Q:
+            msg += "q";
+            break;
+        case MovePromotions::R:
+            msg += "r";
+            break;
+        case MovePromotions::N:
+            msg += "n";
+            break;
+        case MovePromotions::B:
+            msg += "b";
+            break;
+        case MovePromotions::None:
+            break;
     }
-    
-    msg += " (bb=" + std::to_string((int)bb)
-        + ", type=" + std::to_string((int)type) + ")";
+
+    msg += " (bb=" + std::to_string((int)bb) + ", type=" + std::to_string((int)type) + ")";
 
     return msg;
 }

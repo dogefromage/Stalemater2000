@@ -5,33 +5,21 @@
 #include "position.h"
 #include "board.h"
 #include "eval.h"
-
-// typedef struct Node {
-//     Score score;
-//     short depth;
-// } Node;
+#include <mutex>
+#include <memory>
 
 enum class ComputerTests {
     Perft,
     Zobrist,
 };
-enum class LongSearchParameters {
-    wtime,
-    btime,
-    winc,
-    binc,
-    movestogo,
-    depth,
-    nodes,
-    mate,
-    movetime,
-    SIZE,
+
+struct SearchParams {
+    long wtime, btime, winc, binc, movestogo, depth, nodes, mate, movetime;
+    bool infinite, ponder;
 };
-enum class BoolSearchParameters {
-    infinite,
-    ponder,
-    SIZE,
-};
+
+long* getSearchParamLongField(SearchParams* searchParams, std::string& name);
+bool* getSearchParamBoolField(SearchParams* searchParams, std::string& name);
 
 void stopComputer();
 bool isComputerWorking();
@@ -39,33 +27,15 @@ bool isComputerWorking();
 void launchTest(Position root, ComputerTests testType, int depth);
 void launchSearch(
     Position root,
-    std::array<std::int64_t, (size_t)LongSearchParameters::SIZE> longParams,
-    std::array<bool, (size_t)BoolSearchParameters::SIZE> boolParams,
+    SearchParams params,
     std::vector<LanMove> searchmoves);
 
-//    private:
-//     /*
-//     static std::unordered_map<U64, int> BestMoveTable;
-//     static std::unordered_map<U64, Position> PositionTable;
+struct ComputerInfo {
+    long depth, score, nodes, nps;
+    std::string pv;
+};
 
-//     static void AddMessage(std::string msg);
-
-//     static void ChooseMove(const Board& board, int maxDepth);
-
-//     static void PerftAnalysis(Board board, int depth);
-
-//     static void ZobristTest(Board board, int depth);
-
-//     static std::queue<std::string> messages;
-
-//     static int randomMove(Board& board);
-
-//     static Score search(const Board& board, int remainingDepth, Score alpha, Score beta);
-
-//     static Score quiescence(const Board& board, Score alpha, Score beta);
-
-//     static void perftThread(Board board, int depth, int index);
-
-//     static uint64_t perft(Board& board, int depth);
-//     */
-// };
+extern std::mutex computerOutputLock;
+// needs to hold lock to access info and bestmove
+extern std::vector<ComputerInfo> infoBuffer;
+extern std::unique_ptr<LanMove> bestMove;

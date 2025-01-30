@@ -1,6 +1,120 @@
-#include <iostream>
+// #include <iostream>
 
-#include "computer.h"
+// #include "computer.h"
+
+// Score search(const Board& board, int remainingDepth, Score alpha, Score beta) {
+//     if (remainingDepth == 0) {
+//         Score score = quiescence(board, alpha, beta);
+//         return score;
+//     }
+
+//     Score bestScore = -SCORE_CHECKMATE;
+
+//     int bestMove = 0;
+//     MoveList pseudoMoves;
+//     board.generatePseudoMoves(pseudoMoves);
+//     Board nextBoard;
+
+//     int pvMove = 0;
+//     auto pvMoveEntry = BestMoveTable.find(board.zobrist);
+//     if (pvMoveEntry != BestMoveTable.end()) {
+//         pvMove = pvMoveEntry->second;
+//     }
+
+//     for (int i = 0; i <= pseudoMoves.size(); i++) {
+//         int move;
+//         if (i == 0) {
+//             if (!pvMove)
+//                 continue;  // no pv
+//             move = pvMove;
+//         } else {
+//             move = pseudoMoves[i - 1];
+//             if (move == pvMove)
+//                 continue;  // duplicate
+//         }
+
+//         nextBoard = board.movePseudo(move);
+//         if (!nextBoard.isLegal())
+//             continue;  // illegal
+
+//         Score score;
+
+//         bool validTransposition = false;
+
+//         // has entry?
+//         auto boardEntry = PositionTable.find(board.zobrist);
+//         if (boardEntry != Computer::PositionTable.end()) {
+//             if (boardEntry->second.depth >= remainingDepth) {
+//                 // has already more knowledge over this node => skip
+//                 transpositionsSkipped++;
+//                 score = boardEntry->second.score;
+//                 validTransposition = true;
+//             }
+//         }
+
+//         if (!validTransposition) {
+//             // recurse
+//             score = -search(nextBoard, remainingDepth - 1, -beta, -alpha);
+
+//             // favor shallower positions
+//             if (score > 0) {
+//                 score--;
+//             } else if (score < 0) {
+//                 score++;
+//             }
+//         }
+
+//         if (score >= beta) {
+//             // prune branch
+//             branchesPruned++;
+//             return score;
+//         }
+
+//         if (score > bestScore) {
+//             bestScore = score;
+//             bestMove = move;
+
+//             if (score > alpha) {
+//                 alpha = score;
+//             }
+//         }
+
+//         if (!Computer::Working)  // break out if search aborted
+//         {
+//             break;
+//         }
+//     }
+
+//     bool stalemate = board.isStalemate();  // evalates remaining pieces or threefold repetition
+
+//     if (pseudoMoves.size() == 0) {
+//         matesFound++;
+
+//         if (board.sideToMove == WHITE_TO_MOVE) {
+//             if (!(board.checks & CHECK_WHITE))  // white has no moves but is not in check
+//             {
+//                 stalemate = true;
+//             }
+//         } else {
+//             if (!(board.checks & CHECK_BLACK))  // same here
+//             {
+//                 stalemate = true;
+//             }
+//         }
+//     } else {
+//         if (Computer::Working) {
+//             BestMoveTable[board.zobrist] = bestMove;
+//         }
+//     }
+
+//     if (stalemate) {
+//         bestScore = 0;
+//     }
+
+//     PositionTable[board.zobrist] = {bestScore, (short)remainingDepth};
+
+//     return bestScore;
+// }
 
 /*
 int Computer::randomMove(Board& board) {

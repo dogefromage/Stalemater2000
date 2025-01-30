@@ -11,7 +11,10 @@ struct LanMove {
     int from, to;
     MovePromotions promotion;
 
-    LanMove(int from, int to, MovePromotions promotion) 
+    LanMove()
+        : from(0), to(0), promotion(MovePromotions::None) {}
+
+    LanMove(int from, int to, MovePromotions promotion)
         : from(from), to(to), promotion(promotion) {}
 
     std::string toString() const;
@@ -26,7 +29,10 @@ struct GenMove {
     BitBoards bb;
     MoveTypes type;
 
-    GenMove(int from, int to, MovePromotions promotion, BitBoards bb, MoveTypes type) 
+    GenMove()
+        : from(0), to(0), promotion(MovePromotions::None), bb(BitBoards::PW), type(MoveTypes::Normal) {}
+
+    GenMove(int from, int to, MovePromotions promotion, BitBoards bb, MoveTypes type)
         : from(from), to(to), promotion(promotion), bb(bb), type(type) {}
 
     // matches promotion, to, from
@@ -38,7 +44,7 @@ struct GenMove {
     LanMove toLanMove() const;
 
     static GenMove NullMove() {
-        return GenMove(0, 0, MovePromotions::None, BitBoards::PW, MoveTypes::Normal);
+        return GenMove();
     }
 
     bool isNullMove() {

@@ -3,19 +3,34 @@
 #include <array>
 #include <atomic>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
+#include <future>
+
 #include "position.h"
+
+std::mutex computerOutputLock;
+std::vector<ComputerInfo> infoBuffer = {};
+std::unique_ptr<LanMove> bestMove = NULL;
 
 std::atomic<bool> isWorking = false;
 
-/*
-bool Computer::Working = false;
+struct SearchNode {
+    Score score;
+    short depth;
+    GenMove pv;
+};
+std::unordered_map<U64, SearchNode> searchTable;
 
-std::unordered_map<U64, int> Computer::BestMoveTable;
-std::unordered_map<U64, Position> Computer::PositionTable;
-*/
+long currNodesSearched;
+long prevTotalNodesSearched;
+std::chrono::_V2::system_clock::time_point lastTime;
+std::chrono::_V2::system_clock::time_point startTime;
+int goalMicros = -1;
+int iterativeDepth;
+Position rootPosition;
 
-long perft(Position curr, int depth) {
+long perft(Position& curr, int depth) {
     if (depth == 0) {
         return 1;
     }
@@ -32,14 +47,14 @@ long perft(Position curr, int depth) {
         }
         next.movePseudoInPlace(m);
         if (!next.board.isLegal()) {
-            continue; // illegal move
+            continue;  // illegal move
         }
-        count += perft(next, depth - 1); // recurse
+        count += perft(next, depth - 1);  // recurse
     }
     return count;
 }
 
-void launchPerft(Position root, int depth) {
+void launchPerft(Position& root, int depth) {
     isWorking = true;
 
     long total = 0;
@@ -55,9 +70,9 @@ void launchPerft(Position root, int depth) {
         }
         next.movePseudoInPlace(m);
         if (!next.board.isLegal()) {
-            continue; // illegal move
+            continue;  // illegal move
         }
-        long moveScore = perft(next, depth - 1); // recurse
+        long moveScore = perft(next, depth - 1);  // recurse
         total += moveScore;
 
         std::cout << m.toLanMove().toString() << " -> " << moveScore << std::endl;
@@ -68,12 +83,36 @@ void launchPerft(Position root, int depth) {
     isWorking = false;
 }
 
-void launchZobrist(Position root, int depth) {
+void launchZobrist(Position& root, int depth) {
+    (void)root;
+    (void)depth;
     std::cerr << "Implement zobrist" << std::endl;
 }
 
 void stopComputer() {
-    std::cerr << "Implement stop" << std::endl;
+    if (!isWorking) {
+        printf("computer is not working\n");
+    }
+    isWorking = false;
+}
+
+long* getSearchParamLongField(SearchParams* searchParams, std::string& name) {
+    if (name == "wtime") return &searchParams->wtime;
+    if (name == "btime") return &searchParams->btime;
+    if (name == "winc") return &searchParams->winc;
+    if (name == "binc") return &searchParams->binc;
+    if (name == "movestogo") return &searchParams->movestogo;
+    if (name == "depth") return &searchParams->depth;
+    if (name == "nodes") return &searchParams->nodes;
+    if (name == "mate") return &searchParams->mate;
+    if (name == "movetime") return &searchParams->movetime;
+    return nullptr;
+}
+
+bool* getSearchParamBoolField(SearchParams* searchParams, std::string& name) {
+    if (name == "infinite") return &searchParams->infinite;
+    if (name == "ponder") return &searchParams->ponder;
+    return nullptr;
 }
 
 bool isComputerWorking() {
@@ -85,7 +124,6 @@ void launchTest(Position root, ComputerTests testType, int depth) {
         std::cerr << "A task is already running." << std::endl;
         return;
     }
-
     switch (testType) {
         case ComputerTests::Perft:
             launchPerft(root, depth);
@@ -96,12 +134,193 @@ void launchTest(Position root, ComputerTests testType, int depth) {
     }
 }
 
+// time managment
+static bool outOfTime() {
+    if (goalMicros < 0) {
+        return false;
+    }
+    auto curr = std::chrono::high_resolution_clock::now();
+    long microsSinceStart = std::chrono::duration_cast<std::chrono::microseconds>(curr - startTime).count();
+    return microsSinceStart >= goalMicros;
+}
+
+Score search(Position curr, int remainingDepth, Score alpha, Score beta) {
+    auto boardEntry = searchTable.find(curr.board.getHash());
+    if (boardEntry != searchTable.end() &&
+        boardEntry->second.depth >= remainingDepth) {
+        // has already more knowledge over this node => skip
+        return boardEntry->second.score;
+    }
+
+    currNodesSearched++;
+
+    // printf("%ld nodes \n", currNodesSearched);
+
+    if ((currNodesSearched % 100000 == 0) && outOfTime()) {
+        isWorking = false;
+        // printf("STOPPED WORKING\n");
+    }
+
+    if (remainingDepth <= 0 || !isWorking) {
+        return evaluate(curr.board);
+    }
+
+    Score bestScore = -SCORE_CHECKMATE;
+    GenMove bestMove = GenMove::NullMove();
+    MoveList moves;
+    curr.board.generatePseudoMoves(moves);
+
+    for (GenMove& m : moves) {
+        Position next(curr);
+        next.movePseudoInPlace(m);
+        if (!next.board.isLegal()) {
+            continue;
+        }
+
+        Score score = -search(next, remainingDepth - 1, -beta, -alpha);
+
+        // if (!isWorking) {
+        //     printf("curr move %s\n", m.toString().c_str());
+        // }
+
+        if (score >= beta) {
+            // prune branch
+            return score;
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+            if (score > alpha) {
+                alpha = score;
+            }
+        }
+    }
+
+    bool stalemate = false;  // add counting remaining pieces and threefold repetition
+
+    if (bestMove.isNullMove()) {
+        // no moves
+        if (curr.board.getSideToMove() == Side::White) {
+            if (!(curr.board.hasCheck(CheckFlags::WhiteInCheck))) {
+                // white has no moves but is not in check
+                stalemate = true;
+            }
+        } else if (!(curr.board.hasCheck(CheckFlags::BlackInCheck))) {
+            stalemate = true;
+        }
+    }
+    if (stalemate) {
+        bestScore = 0;
+    }
+
+    if (isWorking) {
+        searchTable[curr.board.getHash()] = {.score = bestScore, .depth = (short)remainingDepth, .pv=bestMove};
+    }
+
+    return bestScore;
+}
+
+std::string getPvList(Position board) {
+    std::string pvList = "";
+    while (true) {
+        auto res = searchTable.find(board.board.getHash());
+        if (res == searchTable.end() || res->second.pv.isNullMove()) {
+            return pvList;
+        }
+        GenMove m = res->second.pv;
+        if (pvList.length() > 0) {
+            pvList += " ";
+        }
+        pvList += m.toLanMove().toString();
+        board.movePseudoInPlace(m);
+    }
+}
+
+void generateComputerInfo() {
+    auto curr = std::chrono::high_resolution_clock::now();
+    long micros = std::chrono::duration_cast<std::chrono::microseconds>(curr - lastTime).count();
+    lastTime = curr;
+    double seconds = micros / 1'000'000.0;
+    if (seconds == 0) {
+        return;
+    }
+    
+    ComputerInfo info;
+    info.depth = iterativeDepth;
+    info.nodes = prevTotalNodesSearched + currNodesSearched;
+    info.nps = (long)((double)currNodesSearched / seconds);
+
+    prevTotalNodesSearched += currNodesSearched;
+    currNodesSearched = 0;
+
+    auto hit = searchTable.find(rootPosition.board.getHash());
+    if (hit == searchTable.end()) {
+        printf("root not found\n");
+        return;
+    }
+    SearchNode& node = hit->second;
+    info.score = node.score;
+
+    info.pv = getPvList(rootPosition);
+
+    std::lock_guard<std::mutex> guard(computerOutputLock);
+
+    infoBuffer.push_back(info);
+}
+
 void launchSearch(
     Position root,
-    std::array<std::int64_t, (size_t)LongSearchParameters::SIZE> longParams,
-    std::array<bool, (size_t)BoolSearchParameters::SIZE> boolParams,
+    SearchParams params,
     std::vector<LanMove> searchmoves) {
-    std::cerr << "Implement launchSearch" << std::endl;
+
+    if (isWorking) {
+        return; // instantly stop
+    }
+    isWorking = true;
+
+    (void)searchmoves;
+
+    startTime = lastTime = std::chrono::high_resolution_clock::now();
+    goalMicros = -1;
+    // int wbTimeMillis = root.board.getSideToMove() == Side::White ? params.movetime : params.btime;
+
+    int moveTime = params.movetime;
+    if (moveTime < 0) {
+        moveTime = 3000;
+    }
+
+    if (moveTime >= 0) {
+        goalMicros = 1000 * moveTime;
+        // printf("goal micros = %ld\n", goalMicros);
+    } 
+
+    rootPosition = root;
+    currNodesSearched = prevTotalNodesSearched = 0;
+
+    int maxDepth = params.depth >= 0 ? params.depth : 10000;
+
+    for (iterativeDepth = 1; iterativeDepth <= maxDepth; iterativeDepth++) {
+
+        search(root, iterativeDepth, -SCORE_CHECKMATE, SCORE_CHECKMATE);
+
+        if (isWorking) {
+            generateComputerInfo();
+        } else {
+            break;
+        }
+    }
+
+    auto currPv = searchTable.find(root.board.getHash());
+    if (currPv == searchTable.end() ||
+        currPv->second.pv.isNullMove()) {
+        printf("search failed - no move found\n");
+    } else {
+        std::lock_guard<std::mutex> guard(computerOutputLock);
+        bestMove.reset(new LanMove(currPv->second.pv.toLanMove()));
+    }
+
+    isWorking = false;
 }
 
 /*

@@ -1,10 +1,15 @@
 #include "uci.h"
-#include "moves.h"
+
+#include <array>
+#include <cstring>
 #include <iostream>
 #include <optional>
-#include <array>
+#include <thread>
+
 #include "history.h"
+#include "moves.h"
 #include "position.h"
+#include "log.h"
 
 const std::string ENGINE_NAME = "Stalemater2000";
 
@@ -15,7 +20,7 @@ std::optional<std::string> nextKeyword(std::list<std::string>& keywords, const s
     }
     std::string firstToken = keywords.front();
     keywords.pop_front();
-    return { firstToken };
+    return {firstToken};
 }
 
 std::optional<int> nextInteger(std::list<std::string>& keywords, const std::string& expectedToken) {
@@ -23,9 +28,8 @@ std::optional<int> nextInteger(std::list<std::string>& keywords, const std::stri
     if (keyword.has_value()) {
         try {
             int val = std::stoi(keyword.value());
-            return { val };
-        }
-        catch (const std::exception& _) {
+            return {val};
+        } catch (const std::exception& _) {
             std::cout << "Expected integer for [" << expectedToken << "]" << std::endl;
         }
     }
@@ -33,49 +37,93 @@ std::optional<int> nextInteger(std::list<std::string>& keywords, const std::stri
 }
 
 UCI::UCI() {
-	std::cout << ENGINE_NAME << std::endl;
-	hist = History();
+    std::cout << ENGINE_NAME << std::endl;
+    hist = History();
+
 }
 
-void UCI::writeTokenizedCommand(std::list<std::string>& tokenizedLine) {
+void tokenize(std::string const& str, const char delim, std::list<std::string>& out) {
+    size_t start;
+    size_t end = 0;
+
+    while ((start = str.find_first_not_of(delim, end)) != std::string::npos) {
+        end = str.find(delim, start);
+        out.push_back(str.substr(start, end - start));
+    }
+}
+
+void UCI::writeTokenizedCommand(std::string rawLine) {
+    LOG("[IN] %s\n", rawLine.c_str());
+
+    std::list<std::string> tokenizedLine;
+    tokenize(rawLine, ' ', tokenizedLine);
+
     if (tokenizedLine.empty()) {
         return;
     }
     std::string firstToken = tokenizedLine.front();
     tokenizedLine.pop_front();
 
-    if      (firstToken == "stop")       handleStop(tokenizedLine);
-    else if (firstToken == "uci")        handleUci(tokenizedLine);
-    else if (firstToken == "isready")    handleIsReady(tokenizedLine);
-    else if (firstToken == "go")         handleGo(tokenizedLine);
-    else if (firstToken == "position")   handlePosition(tokenizedLine);
-    else if (firstToken == "ucinewgame") handleUciNewGame(tokenizedLine);
-    else if (firstToken == "d")          handleDisplay(tokenizedLine);
-    else if (firstToken == "quit")       handleQuit(tokenizedLine);
-    else if (firstToken == "movelist")   handleMovelist(tokenizedLine);
+    if (firstToken == "stop")
+        handleStop(tokenizedLine);
+    else if (firstToken == "uci")
+        handleUci(tokenizedLine);
+    else if (firstToken == "isready")
+        handleIsReady(tokenizedLine);
+    else if (firstToken == "go")
+        handleGo(tokenizedLine);
+    else if (firstToken == "position")
+        handlePosition(tokenizedLine);
+    else if (firstToken == "ucinewgame")
+        handleUciNewGame(tokenizedLine);
+    else if (firstToken == "d")
+        handleDisplay(tokenizedLine);
+    else if (firstToken == "quit")
+        handleQuit(tokenizedLine);
+    else if (firstToken == "movelist")
+        handleMovelist(tokenizedLine);
     else {
-        std::cout << "Unknown command entered \"" << firstToken << "\"" << std::endl;
+        printf("ERROR unknown command entered \"%s\"\n", firstToken.c_str());
     }
 }
 
-void UCI::handleUci(std::list<std::string>& params)
-{
+void UCI::consumeOutput() {
+    // std::unique_lock<std::mutex> guard(computerOutputLock, std::try_to_lock);
+    std::lock_guard<std::mutex> guard(computerOutputLock);
+
+    for (const ComputerInfo& info : infoBuffer) {
+        printf("info depth %ld score cp %ld nodes %ld nps %ld pv %s\n", 
+            info.depth, info.score, info.nodes, info.nps, info.pv.c_str());
+    }
+    infoBuffer.clear();
+
+    if (bestMove != NULL) {
+        printf("bestmove %s\n", bestMove->toString().c_str());
+        bestMove.reset();
+    }
+}
+
+void UCI::handleUci(std::list<std::string>& params) {
+    (void)params;
     std::cout << "id name " << ENGINE_NAME << std::endl;
     std::cout << "id author dogefromage" << std::endl;
     std::cout << "uciok" << std::endl;
 }
 
 void UCI::handleIsReady(std::list<std::string>& params) {
+    (void)params;
     std::cout << "readyok" << std::endl;
 }
 
-void UCI::handleUciNewGame(std::list<std::string>& params)
-{
-    // ?
+void UCI::handleUciNewGame(std::list<std::string>& params) {
+    (void)params;
+    
+    if (isComputerWorking()) {
+        stopComputer();
+    }
 }
 
-void UCI::handleGo(std::list<std::string>& params)
-{
+void UCI::handleGo(std::list<std::string>& params) {
     if (!params.empty()) {
         std::string firstKeyword = params.front();
         bool isPerft = firstKeyword == "perft";
@@ -86,10 +134,11 @@ void UCI::handleGo(std::list<std::string>& params)
             if (!depth.has_value()) return;
 
             ComputerTests testType;
-            if (isPerft)   testType = ComputerTests::Perft;
+            if (isPerft) testType = ComputerTests::Perft;
             if (isZobrist) testType = ComputerTests::Zobrist;
 
-            launchTest(hist.current(), testType, depth.value());
+            std::thread testThread(launchTest, hist.current(), testType, depth.value());
+            testThread.detach();
             return;
         }
     }
@@ -97,44 +146,37 @@ void UCI::handleGo(std::list<std::string>& params)
     // NORMAL SEARCH
     // https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
 
-    auto longParams = std::array<std::int64_t, (size_t)LongSearchParameters::SIZE>();
-    longParams.fill(-1);
-    auto boolParams = std::array<bool, (size_t)BoolSearchParameters::SIZE>();
-    boolParams.fill(false);
+    SearchParams searchParams;
+    searchParams.wtime = -1;
+    searchParams.btime = -1;
+    searchParams.winc = -1;
+    searchParams.binc = -1;
+    searchParams.movestogo = -1;
+    searchParams.depth = -1;
+    searchParams.nodes = -1;
+    searchParams.mate = -1;
+    searchParams.movetime = -1;
+    searchParams.infinite = false;
+    searchParams.ponder = false;
 
     std::vector<LanMove> searchMoves;
 
     while (!params.empty()) {
         std::string param = nextKeyword(params, "search parameter").value();
 
-        // longs
-        LongSearchParameters lParam = LongSearchParameters::SIZE;
-        if (param == "wtime") lParam = LongSearchParameters::wtime;
-        if (param == "btime") lParam = LongSearchParameters::btime;
-        if (param == "winc") lParam = LongSearchParameters::winc;
-        if (param == "binc") lParam = LongSearchParameters::binc;
-        if (param == "movestogo") lParam = LongSearchParameters::movestogo;
-        if (param == "depth") lParam = LongSearchParameters::depth;
-        if (param == "nodes") lParam = LongSearchParameters::nodes;
-        if (param == "mate") lParam = LongSearchParameters::mate;
-        if (param == "movetime") lParam = LongSearchParameters::movetime;
+        bool* boolField;
+        if ((boolField = getSearchParamBoolField(&searchParams, param))) {
+            *boolField = true;
+            continue;
+        }
 
-        if (lParam != LongSearchParameters::SIZE) {
+        long* longField;
+        if ((longField = getSearchParamLongField(&searchParams, param))) {
             std::optional<int> optInt = nextInteger(params, param + " value");
             if (!optInt.has_value()) {
                 continue;
             }
-            longParams[(size_t)lParam] = optInt.value();
-            continue;
-        }
-
-        // bools
-        BoolSearchParameters bParam = BoolSearchParameters::SIZE;
-        if (param == "infinite") bParam = BoolSearchParameters::infinite;
-        if (param == "ponder") bParam = BoolSearchParameters::ponder;
-
-        if (lParam != LongSearchParameters::SIZE) {
-            boolParams[(size_t)lParam] = true;
+            *longField = optInt.value();
             continue;
         }
 
@@ -145,15 +187,18 @@ void UCI::handleGo(std::list<std::string>& params)
                 std::optional<LanMove> parsedMove = LanMove::parseLanMove(searchMove);
                 if (parsedMove.has_value()) {
                     searchMoves.push_back(parsedMove.value());
+                } else {
+                    printf("invalid move \"%s\"\n", searchMove.c_str());
                 }
             }
             continue;
         }
 
-        printError("Unknown search param: " + param + "\n");
+        printf("ERROR invalid param \"%s\"\n", param.c_str());
     }
 
-    launchSearch(hist.current(), longParams, boolParams, searchMoves);
+    std::thread searchThread(launchSearch, hist.current(), searchParams, searchMoves);
+    searchThread.detach();
 }
 
 void UCI::handlePosition(std::list<std::string>& params) {
@@ -175,13 +220,13 @@ void UCI::handlePosition(std::list<std::string>& params) {
         }
         hist = History(Position::fromFen(fenTokens));
     }
-    
+
     if (params.empty()) {
         return;
     }
     std::string movesKeyword = nextKeyword(params, "moves").value();
     if (movesKeyword != "moves") {
-        printError("expected [moves]\n");
+        printf("ERROR expected [moves]\n");
         return;
     }
 
@@ -189,11 +234,12 @@ void UCI::handlePosition(std::list<std::string>& params) {
         std::string moveKeyword = nextKeyword(params, "param").value();
         std::optional<LanMove> move = LanMove::parseLanMove(moveKeyword);
         if (!move.has_value()) {
+            printf("ERROR invalid move \"%s\"\n", moveKeyword.c_str());
             return;
         }
         bool success = hist.tryMoveLan(move.value());
         if (!success) {
-            printError("Could not execute move: " + move.value().toString() + "\n");
+            printf("ERROR could not make move in current position \"%s\"\n", move.value().toString().c_str());
             return;
         }
     }
@@ -208,7 +254,7 @@ void UCI::handleDisplay(std::list<std::string>& params) {
         if (arg == "moves") {
             moves = true;
         } else {
-            printError("Unknown print arg: " + arg + "\n");
+            printf("ERROR unknown print arg \"%s\"\n", arg.c_str());
         }
     }
 
@@ -216,14 +262,17 @@ void UCI::handleDisplay(std::list<std::string>& params) {
 }
 
 void UCI::handleStop(std::list<std::string>& params) {
+    (void)params;
     stopComputer();
 }
 
 void UCI::handleQuit(std::list<std::string>& params) {
+    (void)params;
     exit(EXIT_SUCCESS);
 }
 
 void UCI::handleMovelist(std::list<std::string>& params) {
+    (void)params;
     MoveList all, legal;
     hist.current().board.generatePseudoMoves(all);
 
@@ -244,8 +293,3 @@ void UCI::handleMovelist(std::list<std::string>& params) {
 
 constexpr auto TERMINAL_RESET = "\033[0m";
 constexpr auto TERMINAL_RED = "\033[31m";
-
-void UCI::printError(std::string msg) const {
-    std::cout << TERMINAL_RED << msg << TERMINAL_RESET;
-}
-

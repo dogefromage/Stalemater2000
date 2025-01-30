@@ -15,7 +15,7 @@ Position Position::fromFen(const std::vector<std::string>& arguments) {
     Position node = Position();
     Board& board = node.board;
 
-    int argumentIndex = 0;
+    size_t argumentIndex = 0;
 
     // only so that i can break out of block (this is actually genius)
     while (true) {
@@ -74,7 +74,7 @@ Position Position::fromFen(const std::vector<std::string>& arguments) {
 
         // Castling
         int castlingRights = 0;
-        for (int i = 0; i < castling.length(); i++) {
+        for (size_t i = 0; i < castling.length(); i++) {
             switch (castling[i]) {
                 case 'K':
                     castlingRights |= 1;
@@ -135,6 +135,8 @@ Position Position::fromFen(const std::vector<std::string>& arguments) {
 }
 
 void Position::movePseudoInPlace(GenMove move) {
+
+    assert(!move.isNullMove());
 
     bool isCapture = false;
     bool isPawnMove = false;
@@ -209,6 +211,8 @@ void Position::movePseudoInPlace(GenMove move) {
                 case MovePromotions::B:
                     promBoard = (int)BitBoards::BW;
                     break;
+                case MovePromotions::None:
+                    break;
             }
 
             if (board.getSideToMove() == Side::Black) {
@@ -282,7 +286,7 @@ std::string Position::toFen() const {
         fen += " b ";
     }
 
-    int lastLen = (int)fen.length();
+    size_t lastLen = fen.length();
     if (board.getCastlingRight(CastlingTypes::WhiteKing)) fen += "K";
     if (board.getCastlingRight(CastlingTypes::WhiteQueen)) fen += "Q";
     if (board.getCastlingRight(CastlingTypes::BlackKing)) fen += "k";

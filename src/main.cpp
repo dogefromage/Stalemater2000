@@ -1,35 +1,55 @@
 #include <iostream>
-#include <string>
 #include <list>
-#include "uci.h"
+#include <string>
+
 #include "hash.h"
-
-void tokenize(std::string const& str, const char delim, std::list<std::string>& out) {
-    size_t start;
-    size_t end = 0;
-
-    while ((start = str.find_first_not_of(delim, end)) != std::string::npos)
-    {
-        end = str.find(delim, start);
-        out.push_back(str.substr(start, end - start));
-    }
-}
+#include "log.h"
+#include "uci.h"
 
 int main() {
-    std::cout.setf(std::ios::unitbuf); // most important line in the whole engine
-    // stolen from https://github.com/KierenP/Halogen/blob/master/Halogen/src/main.cpp you saved my life
+    // IMPORTANT disable output buffering for both std::cout and printf
+    std::cout.setf(std::ios::unitbuf);
+    setvbuf(stdout, NULL, _IOLBF, 0);
 
+    initLogging();
     InitZobrist();
 
     UCI uci;
 
-    while (true) {
-        std::string inputLine;
-        std::getline(std::cin, inputLine);
+    std::string input_buffer;
 
-        std::list<std::string> tokenizedLine;
-        tokenize(inputLine, ' ', tokenizedLine);
-     
-        uci.writeTokenizedCommand(tokenizedLine);
+    while (true) {
+        // file descriptors for select
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(STDIN_FILENO, &read_fds);
+
+        // timeout for how long select will wait
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 20000;
+
+        int select_result = select(STDIN_FILENO + 1, &read_fds, nullptr, nullptr, &timeout);
+
+        // i do not understand this
+        if (select_result > 0 && FD_ISSET(STDIN_FILENO, &read_fds)) {
+            char buffer[1024];
+            ssize_t bytes_read = read(STDIN_FILENO, buffer, sizeof(buffer));
+
+            if (bytes_read > 0) {
+                input_buffer.append(buffer, bytes_read);
+
+                size_t newline_pos;
+                while ((newline_pos = input_buffer.find('\n')) != std::string::npos) {
+                    std::string line = input_buffer.substr(0, newline_pos);
+                    uci.writeTokenizedCommand(line);
+                    input_buffer.erase(0, newline_pos + 1);
+                }
+            }
+        } else {
+            uci.consumeOutput();
+        }
     }
+
+    return 0;
 }
