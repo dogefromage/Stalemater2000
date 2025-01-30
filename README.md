@@ -8,11 +8,11 @@ This repository is quite a construction site since I have restarted the project 
 
 ### Input position and display board using [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation):
 
-```bash
+```
 position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
 d
 ```
-```bash
+```
   -------------------
 8 | r n b q k b n r |
 7 | p p p p p p p p |
@@ -36,10 +36,10 @@ Checks:
 ```
 
 ### Do a [perft analysis](https://www.chessprogramming.org/Perft_Results) to validate the engine by counting legal subpositions: 
-```bash
+```
 go perft 5
 ```
-```bash
+```
 b8a6 -> 398321
 b8c6 -> 475842
 g8f6 -> 474457
@@ -79,7 +79,8 @@ bestmove b1c3
 ```
 
 ## Useful links
-Everything you'd ever would want to know about chess programming can be found on the [chess programming wiki](https://www.chessprogramming.org). It has lots of pseudocode and details about both historic and leading-edge approaches.
+Everything you'd ever would want to know about chess programming can be found on the [chess programming wiki](https://www.chessprogramming.org). It has lots of pseudocode and details 
+about both historic and leading-edge approaches.
 
 The bitboard logic I used was really well explained in [this Youtube series by Logic Crazy Chess](https://www.youtube.com/watch?v=V_2-LOvr5E8&list=PLQV5mozTHmacMeRzJCW_8K3qw2miYqd0c).
 
