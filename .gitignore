@@ -4,3 +4,8 @@ bin
 .log
 
 stockfish
+
+datasets
+venv
+__pycache__
+*.pt

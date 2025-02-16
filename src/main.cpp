@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "log.h"
 #include "uci.h"
+#include "nnue.h"
 
 int main() {
     // IMPORTANT disable output buffering for both std::cout and printf
@@ -13,6 +14,7 @@ int main() {
 
     initLogging();
     InitZobrist();
+    init_nnue();
 
     UCI uci;
 

@@ -143,8 +143,8 @@ void Board::useDerivedState() {
     _blackPieces = boards[6] | boards[7] | boards[8] | boards[9] | boards[10] | boards[11];
     _occupied = _whitePieces | _blackPieces;
 
-    _unsafeForWhite = getUnsafeForWhite();
-    _unsafeForBlack = getUnsafeForBlack();
+    _unsafeForWhite = findUnsafeForWhite();
+    _unsafeForBlack = findUnsafeForBlack();
 
     _checks = 0;
     if (boards[(int)BitBoards::KW] & _unsafeForWhite) {
@@ -157,7 +157,7 @@ void Board::useDerivedState() {
     _lastDerivedHash = hash;
 }
 
-U64 Board::getUnsafeForWhite() const {
+U64 Board::findUnsafeForWhite() const {
     U64 unsafe = 0;
     // pawns
     unsafe |= (boards[(int)BitBoards::PB] >> 7) & ~FILE_A;
@@ -218,7 +218,7 @@ U64 Board::getUnsafeForWhite() const {
     return unsafe;
 }
 
-U64 Board::getUnsafeForBlack() const {
+U64 Board::findUnsafeForBlack() const {
     U64 unsafe = 0;
     // pawns
     unsafe |= (boards[(int)BitBoards::PW] << 7) & ~FILE_H;
@@ -278,4 +278,29 @@ U64 Board::getUnsafeForBlack() const {
         unsafe |= kingMoves;
     }
     return unsafe;
+}
+
+U64 Board::getOccupied() {
+    useDerivedState();
+    return _occupied;
+}
+
+U64 Board::getWhitePieces() {
+    useDerivedState();
+    return _whitePieces;
+}
+
+U64 Board::getBlackPieces() {
+    useDerivedState();
+    return _blackPieces;
+}
+
+U64 Board::getUnsafeForWhite() {
+    useDerivedState();
+    return _unsafeForWhite;
+}
+
+U64 Board::getUnsafeForBlack() {
+    useDerivedState();
+    return _unsafeForBlack;
 }

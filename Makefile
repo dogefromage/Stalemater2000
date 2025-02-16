@@ -2,8 +2,8 @@
 
 
 CC = g++
-CC_FLAGS = -Wpedantic -Wall -Wextra -O1 -I./include -std=c++20
-# CC_FLAGS = -Wpedantic -Wall -Wextra -g -I./include -std=c++20
+# CC_FLAGS = -Wpedantic -Wall -Wextra -O1 -I./include -std=c++20
+CC_FLAGS = -Wpedantic -Wall -Wextra -g -I./include -std=c++20
 LINK_FLAGS =
 
 SRC_DIR = src

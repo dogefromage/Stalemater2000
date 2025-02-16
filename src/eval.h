@@ -10,8 +10,7 @@ constexpr Score SCORE_CHECKMATE = 30000;
 constexpr Score PIECE_VALUES[] = {
     100, 500, 320, 330, 900, 2000};
 
-/*
-constexpr Score PIECE_SQUARE_TABLE[] = {
+constexpr Score PIECE_SQUARE_SCORE[] = {
     // pawn
      0,  0,  0,  0,  0,  0,  0,  0,
     50, 50, 50, 50, 50, 50, 50, 50,
@@ -81,14 +80,12 @@ constexpr U64 KING_ZONE_SPAN = 0x1F1F1F1F1F;
 constexpr int KING_ZONE_OFFSET = 18;
 
 // source: https://www.chessprogramming.org/King_Safety
-constexpr Score KING_ATTACKER_DANGER[] =
-{
+constexpr Score KING_ATTACKER_DANGER[] = {
     //20 for a knight, 20 for a bishop, 40 for a rook and 80 for a queen
     5, 40, 20, 20, 80, 5
 };
 
-constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] =
-{
+constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] = {
     0,  // 0
     0,  // 1
     50, // 2
@@ -100,6 +97,4 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] =
     99, 99, 99, 99, 99, 99, 99, 99, 99 // prevent out of range
 };
 
-*/
-
-Score evaluate(const Board& board);
+Score evaluate(Board& board);

@@ -24,6 +24,12 @@ public:
 
     void generatePseudoMoves(MoveList& moveList);
 
+    U64 getOccupied();
+    U64 getWhitePieces();
+    U64 getBlackPieces();
+    U64 getUnsafeForWhite();
+    U64 getUnsafeForBlack();
+
 private:
     U64 boards[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     U64 enpassantTarget = 0;
@@ -37,8 +43,8 @@ private:
     char _checks = 0;
 
     void useDerivedState();
-    U64 getUnsafeForWhite() const;
-    U64 getUnsafeForBlack() const;
+    U64 findUnsafeForWhite() const;
+    U64 findUnsafeForBlack() const;
 
     void genCastlesWhite(MoveList& moves) const;
     void genCastlesBlack(MoveList& moves) const;

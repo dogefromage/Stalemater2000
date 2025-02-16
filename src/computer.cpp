@@ -1,36 +1,11 @@
 ﻿#include "computer.h"
 
-#include <array>
-#include <atomic>
-#include <iostream>
-#include <unordered_map>
 #include <vector>
-#include <future>
 
 #include "position.h"
+#include <set>
 
-std::mutex computerOutputLock;
-std::vector<ComputerInfo> infoBuffer = {};
-std::unique_ptr<LanMove> bestMove = NULL;
-
-std::atomic<bool> isWorking = false;
-
-struct SearchNode {
-    Score score;
-    short depth;
-    GenMove pv;
-};
-std::unordered_map<U64, SearchNode> searchTable;
-
-long currNodesSearched;
-long prevTotalNodesSearched;
-std::chrono::_V2::system_clock::time_point lastTime;
-std::chrono::_V2::system_clock::time_point startTime;
-int goalMicros = -1;
-int iterativeDepth;
-Position rootPosition;
-
-long perft(Position& curr, int depth) {
+long Computer::perft(Position& curr, int depth) {
     if (depth == 0) {
         return 1;
     }
@@ -54,7 +29,8 @@ long perft(Position& curr, int depth) {
     return count;
 }
 
-void launchPerft(Position& root, int depth) {
+void Computer::launchPerft(Position& root, int depth) {
+    std::cerr << "Launching perft..." << std::endl;
     isWorking = true;
 
     long total = 0;
@@ -83,43 +59,20 @@ void launchPerft(Position& root, int depth) {
     isWorking = false;
 }
 
-void launchZobrist(Position& root, int depth) {
+void Computer::launchZobrist(Position& root, int depth) {
     (void)root;
     (void)depth;
     std::cerr << "Implement zobrist" << std::endl;
 }
 
-void stopComputer() {
+void Computer::stopWorking() {
     if (!isWorking) {
         printf("computer is not working\n");
     }
     isWorking = false;
 }
 
-long* getSearchParamLongField(SearchParams* searchParams, std::string& name) {
-    if (name == "wtime") return &searchParams->wtime;
-    if (name == "btime") return &searchParams->btime;
-    if (name == "winc") return &searchParams->winc;
-    if (name == "binc") return &searchParams->binc;
-    if (name == "movestogo") return &searchParams->movestogo;
-    if (name == "depth") return &searchParams->depth;
-    if (name == "nodes") return &searchParams->nodes;
-    if (name == "mate") return &searchParams->mate;
-    if (name == "movetime") return &searchParams->movetime;
-    return nullptr;
-}
-
-bool* getSearchParamBoolField(SearchParams* searchParams, std::string& name) {
-    if (name == "infinite") return &searchParams->infinite;
-    if (name == "ponder") return &searchParams->ponder;
-    return nullptr;
-}
-
-bool isComputerWorking() {
-    return isWorking;
-}
-
-void launchTest(Position root, ComputerTests testType, int depth) {
+void Computer::launchTest(Position root, ComputerTests testType, int depth) {
     if (isWorking) {
         std::cerr << "A task is already running." << std::endl;
         return;
@@ -135,16 +88,75 @@ void launchTest(Position root, ComputerTests testType, int depth) {
 }
 
 // time managment
-static bool outOfTime() {
-    if (goalMicros < 0) {
-        return false;
+bool Computer::mustStopSearching() {
+
+    if (task->params.getBoolField("infinite")) {
+        return false; // never stop here
     }
+
+    // depth <x>
+    long depthParam = task->params.getLongField("depth");
+    if (depthParam > 0 && task->iterativeDepth > depthParam) {
+        return true;
+    }
+
+    // nodes <x>, mate <x>, 
+    // TODO
+
     auto curr = std::chrono::high_resolution_clock::now();
-    long microsSinceStart = std::chrono::duration_cast<std::chrono::microseconds>(curr - startTime).count();
-    return microsSinceStart >= goalMicros;
+    long totalMillis = std::chrono::duration_cast<std::chrono::milliseconds>(curr - task->startTime).count();
+    
+    // movetime <ms>
+    long movetimeParam = task->params.getLongField("movetime");
+    if (movetimeParam > 0 && totalMillis >= movetimeParam) {
+        return true;
+    }
+
+    long fullMovesCount = task->rootPosition.fullMovesCount;
+
+    float wtime = (float)task->params.getLongField("wtime");
+    float btime = (float)task->params.getLongField("btime");
+    float winc = (float)task->params.getLongField("winc");
+    float binc = (float)task->params.getLongField("binc");
+    long movestogo = task->params.getLongField("movestogo");
+
+    bool isWhite = task->rootPosition.board.getSideToMove() == Side::White;
+    float remainingTime = isWhite ? wtime : btime;
+    float increment = isWhite ? winc : binc;
+
+    if (remainingTime > 0) {
+        // do time management
+        if (increment < 0) {
+            increment = 0;
+        }
+        if (movestogo <= 0) {
+            // sudden death
+            movestogo = std::max(15L, 50L - fullMovesCount);
+        }
+
+        float availableTime = remainingTime + increment * movestogo;
+        float moveLimitMillis = availableTime / movestogo;
+
+        // limit time in opening
+        float minOpeningFactor = 0.33;
+        int openingFullMoves = 8;
+        float openingFactor = std::max(minOpeningFactor, std::min(fullMovesCount / (float)openingFullMoves, 1.0f));
+
+        moveLimitMillis *= openingFactor;
+
+        // factor in some delay
+        moveLimitMillis = 0.95 * (moveLimitMillis - 500);
+
+        if (totalMillis > moveLimitMillis) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
-Score search(Position curr, int remainingDepth, Score alpha, Score beta) {
+Score Computer::search(Position curr, int remainingDepth, Score alpha, Score beta) {
+
     auto boardEntry = searchTable.find(curr.board.getHash());
     if (boardEntry != searchTable.end() &&
         boardEntry->second.depth >= remainingDepth) {
@@ -152,17 +164,22 @@ Score search(Position curr, int remainingDepth, Score alpha, Score beta) {
         return boardEntry->second.score;
     }
 
-    currNodesSearched++;
+    task->currNodesSearched++;
 
-    // printf("%ld nodes \n", currNodesSearched);
-
-    if ((currNodesSearched % 100000 == 0) && outOfTime()) {
-        isWorking = false;
-        // printf("STOPPED WORKING\n");
+    // only rarely check if out of time
+    if (task->currNodesSearched % 100000 == 0) {
+        if (mustStopSearching()) {
+            isWorking = false;
+        }
     }
 
     if (remainingDepth <= 0 || !isWorking) {
-        return evaluate(curr.board);
+        Score staticEval = evaluate(curr.board);
+        if (curr.board.getSideToMove() == Side::Black) {
+            return -staticEval;
+        } else {
+            return staticEval;
+        }
     }
 
     Score bestScore = -SCORE_CHECKMATE;
@@ -178,11 +195,6 @@ Score search(Position curr, int remainingDepth, Score alpha, Score beta) {
         }
 
         Score score = -search(next, remainingDepth - 1, -beta, -alpha);
-
-        // if (!isWorking) {
-        //     printf("curr move %s\n", m.toString().c_str());
-        // }
-
         if (score >= beta) {
             // prune branch
             return score;
@@ -215,16 +227,25 @@ Score search(Position curr, int remainingDepth, Score alpha, Score beta) {
     }
 
     if (isWorking) {
-        searchTable[curr.board.getHash()] = {.score = bestScore, .depth = (short)remainingDepth, .pv=bestMove};
+        searchTable[curr.board.getHash()] = {.score = bestScore, .depth = (short)remainingDepth, .pv = bestMove};
     }
 
     return bestScore;
 }
 
-std::string getPvList(Position board) {
+std::string Computer::getPvList(Position board) {
     std::string pvList = "";
+    std::set<U64> previousHashes;
+    
     while (true) {
-        auto res = searchTable.find(board.board.getHash());
+        U64 hash = board.board.getHash();
+        // prevent cycles from transpositions
+        if (previousHashes.find(hash) != previousHashes.end()) {
+            return pvList;
+        }
+        previousHashes.insert(hash);
+        
+        auto res = searchTable.find(hash);
         if (res == searchTable.end() || res->second.pv.isNullMove()) {
             return pvList;
         }
@@ -237,24 +258,24 @@ std::string getPvList(Position board) {
     }
 }
 
-void generateComputerInfo() {
+void Computer::generateComputerInfo() {
     auto curr = std::chrono::high_resolution_clock::now();
-    long micros = std::chrono::duration_cast<std::chrono::microseconds>(curr - lastTime).count();
-    lastTime = curr;
-    double seconds = micros / 1'000'000.0;
+    long micros = std::chrono::duration_cast<std::chrono::microseconds>(curr - task->lastTime).count();
+    task->lastTime = curr;
+    float seconds = micros / 1'000'000.0f;
     if (seconds == 0) {
         return;
     }
-    
+
     ComputerInfo info;
-    info.depth = iterativeDepth;
-    info.nodes = prevTotalNodesSearched + currNodesSearched;
-    info.nps = (long)((double)currNodesSearched / seconds);
+    info.depth = task->iterativeDepth;
+    info.nodes = task->prevTotalNodesSearched + task->currNodesSearched;
+    info.nps = (long)((float)task->currNodesSearched / seconds);
 
-    prevTotalNodesSearched += currNodesSearched;
-    currNodesSearched = 0;
+    task->prevTotalNodesSearched += task->currNodesSearched;
+    task->currNodesSearched = 0;
 
-    auto hit = searchTable.find(rootPosition.board.getHash());
+    auto hit = searchTable.find(task->rootPosition.board.getHash());
     if (hit == searchTable.end()) {
         printf("root not found\n");
         return;
@@ -262,65 +283,60 @@ void generateComputerInfo() {
     SearchNode& node = hit->second;
     info.score = node.score;
 
-    info.pv = getPvList(rootPosition);
+    info.pv = getPvList(task->rootPosition);
 
-    std::lock_guard<std::mutex> guard(computerOutputLock);
-
+    std::lock_guard<std::mutex> guard(outputLock);
     infoBuffer.push_back(info);
 }
 
-void launchSearch(
-    Position root,
-    SearchParams params,
-    std::vector<LanMove> searchmoves) {
-
+void Computer::launchSearch(ComputerSearchTask* newTask) {
     if (isWorking) {
-        return; // instantly stop
+        free(newTask);
+        return;  // instantly stop
     }
+    task = newTask;
     isWorking = true;
 
-    (void)searchmoves;
+    // this would not be necessary but I think my search algorithm is not sound
+    searchTable.clear();
 
-    startTime = lastTime = std::chrono::high_resolution_clock::now();
-    goalMicros = -1;
-    // int wbTimeMillis = root.board.getSideToMove() == Side::White ? params.movetime : params.btime;
+    for (task->iterativeDepth = 1; ; task->iterativeDepth++) {
+        if (mustStopSearching()) {
+            isWorking = false;
+        }
 
-    int moveTime = params.movetime;
-    if (moveTime < 0) {
-        moveTime = 3000;
-    }
-
-    if (moveTime >= 0) {
-        goalMicros = 1000 * moveTime;
-        // printf("goal micros = %ld\n", goalMicros);
-    } 
-
-    rootPosition = root;
-    currNodesSearched = prevTotalNodesSearched = 0;
-
-    int maxDepth = params.depth >= 0 ? params.depth : 10000;
-
-    for (iterativeDepth = 1; iterativeDepth <= maxDepth; iterativeDepth++) {
-
-        search(root, iterativeDepth, -SCORE_CHECKMATE, SCORE_CHECKMATE);
-
-        if (isWorking) {
-            generateComputerInfo();
-        } else {
+        if (!isWorking) {
             break;
         }
+
+        search(task->rootPosition, task->iterativeDepth, -SCORE_CHECKMATE, SCORE_CHECKMATE);
+        generateComputerInfo();
     }
 
-    auto currPv = searchTable.find(root.board.getHash());
+    auto currPv = searchTable.find(task->rootPosition.board.getHash());
     if (currPv == searchTable.end() ||
         currPv->second.pv.isNullMove()) {
         printf("search failed - no move found\n");
     } else {
-        std::lock_guard<std::mutex> guard(computerOutputLock);
+        std::lock_guard<std::mutex> guard(outputLock);
         bestMove.reset(new LanMove(currPv->second.pv.toLanMove()));
     }
 
     isWorking = false;
+    free(task);
+}
+
+long SearchParams::getLongField(const char* key) const {
+    auto el = attributes.find(key);
+    if (el != attributes.end()) {
+        return el->second;
+    }
+    return -1;
+}
+
+bool SearchParams::getBoolField(const char* key) const {
+    long asLong = getLongField(key);
+    return asLong > 0;
 }
 
 /*
