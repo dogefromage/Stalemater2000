@@ -2,29 +2,40 @@ import os
 from torch import nn
 import torch
 
-class SCReLU(nn.Module):
-    def __init__(self):
+# class SCReLU(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+
+#     def forward(self, x):
+#         return torch.clamp(x, min=0, max=1) ** 2
+
+class LeakySCReLU(nn.Module):
+    def __init__(self, l=0.01):
         super().__init__()
+        self.l = l
 
     def forward(self, x):
-        return torch.clamp(x, min=0, max=1) ** 2
-    
+        x_low = x * self.l
+        x_high = self.l * (x - 1) + 1
+        y = x**2
+        y = torch.where(x < 0, x_low, y)
+        y = torch.where(x > 1, x_high, y)
+
+        return y
+
 input_size = 768
 hl_size = 1024
+# output_scale = 400
 
 class NNUE(nn.Module):
     def __init__(self):
         super().__init__()
-        self.input_dropout = nn.Dropout(0.01)
         self.accumulation_layer = nn.Linear(input_size, hl_size, bias=True)
-        self.activation = SCReLU()
-        self.accumulation_dropout = nn.Dropout(0.1)
+        self.activation = LeakySCReLU()
         self.output_layer = nn.Linear(2 * hl_size, 1, bias=True)
+        self.sigmoid_activate = nn.Sigmoid()
 
     def forward(self, x, black_to_move):
-
-        x = self.input_dropout(x)
-
         # flip
         x_grouped = x.reshape(-1, 2, 6, 8, 8)
         x_flipped = torch.flip(x_grouped, [1, 3])
@@ -39,14 +50,13 @@ class NNUE(nn.Module):
         # swap accumulators such that stm is first and nstm is second
         acc = torch.where(black_to_move, acc_flipped, acc_normal)
         acc = self.activation(acc)
-        acc = self.accumulation_dropout(acc)
 
-        output = self.output_layer(acc)
+        stm_eval = self.output_layer(acc)
 
         # mirror evaluation
-        output = torch.where(black_to_move, -output, output)
+        fixed_eval = torch.where(black_to_move, -stm_eval, stm_eval)
 
-        return output
+        return fixed_eval
 
 def save_checkpoint(model, optimizer, epoch, file_path = None):
     if file_path is None:

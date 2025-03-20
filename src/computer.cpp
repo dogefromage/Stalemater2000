@@ -174,12 +174,7 @@ Score Computer::search(Position curr, int remainingDepth, Score alpha, Score bet
     }
 
     if (remainingDepth <= 0 || !isWorking) {
-        Score staticEval = evaluate(curr.board);
-        if (curr.board.getSideToMove() == Side::Black) {
-            return -staticEval;
-        } else {
-            return staticEval;
-        }
+        return evaluate_relative(curr.board);
     }
 
     Score bestScore = -SCORE_CHECKMATE;

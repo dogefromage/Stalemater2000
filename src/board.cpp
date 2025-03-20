@@ -73,6 +73,7 @@ void Board::placePiece(BitBoards bb, int square) {
     assert(~(boards[(int)bb] & (1ULL << square)));
     boards[(int)bb] |= 1ULL << square;
     hash ^= ZobristValues[64 * (int)bb + square];
+    accumulator.add((int)bb, square);
 }
 
 void Board::removePiece(BitBoards bb, int square) {
@@ -80,6 +81,7 @@ void Board::removePiece(BitBoards bb, int square) {
     assert(boards[(int)bb] & (1ULL << square));
     boards[(int)bb] &= ~(1ULL << square);
     hash ^= ZobristValues[64 * (int)bb + square];
+    accumulator.remove((int)bb, square);
 }
 
 void Board::switchSide() {
@@ -303,4 +305,8 @@ U64 Board::getUnsafeForWhite() {
 U64 Board::getUnsafeForBlack() {
     useDerivedState();
     return _unsafeForBlack;
+}
+
+int32_t Board::evaluate_nnue() {
+    return accumulator.forward(side);
 }

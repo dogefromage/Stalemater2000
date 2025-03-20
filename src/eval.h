@@ -97,4 +97,4 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] = {
     99, 99, 99, 99, 99, 99, 99, 99, 99 // prevent out of range
 };
 
-Score evaluate(Board& board);
+Score evaluate_relative(Board& board);

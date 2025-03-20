@@ -197,10 +197,7 @@ Score evaluate_classic(Board& board) {
     return eval;
 }
 
-Score evaluate(Board& board) {
+Score evaluate_relative(Board& board) {
     // return evaluate_classic(board);
-
-    nnue_int_t score = evaluate_board_nnue(board);
-
-    return (Score)score;
+    return (Score)board.evaluate_nnue();
 }

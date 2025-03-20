@@ -5,6 +5,7 @@
 
 #include "bitmath.h"
 #include <cassert>
+#include "eval.h"
 
 Position Position::startPos() {
     std::vector<std::string> fen = {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-", "0", "1"};
@@ -344,6 +345,12 @@ void Position::print(bool moves) {
     if (board.hasCheck(CheckFlags::WhiteInCheck)) std::cout << "white in check, ";
     if (board.hasCheck(CheckFlags::BlackInCheck)) std::cout << "black in check, ";
     std::cout << "\n\n";
+
+    Score eval = evaluate_relative(board);
+    if (board.getSideToMove() == Side::Black) {
+        eval = -eval;
+    }
+    std::cout << "Eval: " << eval << "\n\n";
 
     if (moves) {
         MoveList pseudoMoves;

@@ -5,7 +5,8 @@ bin
 
 stockfish
 
-datasets
-venv
+nnue/data
+nnue/output
+nnue/logs
 __pycache__
 *.pt

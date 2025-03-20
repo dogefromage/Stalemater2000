@@ -2,6 +2,7 @@
 #include "hash.h"
 #include "labels.h"
 #include "moves.h"
+#include "nnue.h"
 
 class Board {
 public:
@@ -30,6 +31,8 @@ public:
     U64 getUnsafeForWhite();
     U64 getUnsafeForBlack();
 
+    int32_t evaluate_nnue();
+
 private:
     U64 boards[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     U64 enpassantTarget = 0;
@@ -41,6 +44,9 @@ private:
     U64 _lastDerivedHash = 1;
     U64 _occupied = 0, _whitePieces = 0, _blackPieces = 0, _unsafeForWhite = 0, _unsafeForBlack = 0;
     char _checks = 0;
+
+    // nnue evaluation
+    Accumulator accumulator;
 
     void useDerivedState();
     U64 findUnsafeForWhite() const;
