@@ -7,24 +7,23 @@
 
 const int INPUT_SIZE = 768;
 const int HL_SIZE = 1024;
+const int NUM_BUCKETS = 8;
 
-struct NNUE {
-    int16_t accumulator_weights[INPUT_SIZE][HL_SIZE]; // column major
-    int16_t accumulator_biases[HL_SIZE];
-    int16_t output_weights[2 * HL_SIZE];
-    int16_t output_bias;
-};
+extern const float nnue_accumulator_weights[INPUT_SIZE][HL_SIZE];
+extern const float nnue_accumulator_biases[HL_SIZE];
+extern const float nnue_output_weights[NUM_BUCKETS][2 * HL_SIZE];
+extern const float nnue_output_bias[NUM_BUCKETS];
 
 class Accumulator {
 public:
-    int16_t white_acc[HL_SIZE];
-    int16_t black_acc[HL_SIZE];
+    float white_acc[HL_SIZE];
+    float black_acc[HL_SIZE];
 
     Accumulator();
     
     void add(int bb, int square);
     void remove(int bb, int square);
-    int32_t forward(Side side);
+    int32_t forward(Side side, U64 occupied);
 };
 
 void init_nnue(std::string weights_path);

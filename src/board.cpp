@@ -308,5 +308,5 @@ U64 Board::getUnsafeForBlack() {
 }
 
 int32_t Board::evaluate_nnue() {
-    return accumulator.forward(side);
+    return accumulator.forward(side, getOccupied());
 }

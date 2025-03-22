@@ -17,7 +17,8 @@ int main(int argc, char* argv[]) {
 
     std::string argv_str(argv[0]);
     std::string base = argv_str.substr(0, argv_str.find_last_of("/"));
-    init_nnue(base + "/../weights/nnue_2025-02-27 17:18:02.625752.csv");
+    
+    // init_nnue(base + "/../weights/nnue_2025-02-27 17:18:02.625752.csv");
 
     UCI uci;
 

@@ -30,7 +30,6 @@ long Computer::perft(Position& curr, int depth) {
 }
 
 void Computer::launchPerft(Position& root, int depth) {
-    std::cerr << "Launching perft..." << std::endl;
     isWorking = true;
 
     long total = 0;
@@ -51,7 +50,7 @@ void Computer::launchPerft(Position& root, int depth) {
         long moveScore = perft(next, depth - 1);  // recurse
         total += moveScore;
 
-        std::cout << m.toLanMove().toString() << " -> " << moveScore << std::endl;
+        std::cout << m.toLanMove().toString() << ": " << moveScore << std::endl;
     }
 
     std::cout << "Total: " << total << std::endl;
@@ -187,6 +186,10 @@ Score Computer::search(Position curr, int remainingDepth, Score alpha, Score bet
         next.movePseudoInPlace(m);
         if (!next.board.isLegal()) {
             continue;
+        }
+
+        if (bestMove.isNullMove()) {
+            bestMove = m;
         }
 
         Score score = -search(next, remainingDepth - 1, -beta, -alpha);

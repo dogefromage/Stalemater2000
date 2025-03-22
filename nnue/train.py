@@ -17,15 +17,19 @@ def relative_threshold_accuracy(y_true, y_pred, rel_threshold=0.1, base_threshol
     
     return correct_predictions.mean().item()
 
+def advantage_accuracy(y_true, y_pred):
+    accuracy = (y_true.sign() == y_pred.sign()).float().mean()
+    return accuracy
 
-def train(dir_output, params, train_loader_creator, validation_loader_creator, model):
+
+def train(dir_output, params, train_loader_creator, validation_loader_creator, model, start_epoch=0):
     print(f"Training using {device}")
 
     writer = SummaryWriter(log_dir=dir_output)
     layout = {
         "Training": {
             "loss": ["Multiline", ["loss/train", "loss/validation"]],
-            "accuracy": ["Multiline", ["accuracy/train", "accuracy/validation"]],
+            "accuracy": ["Multiline", ["accuracy/train", "accuracy/validation", "accuracy/validation_20", "accuracy/validation_advantage"]],
             "hyperparams": ["Multiline", ["hyperparams/learning_rate"]],
         },
     }
@@ -40,12 +44,16 @@ def train(dir_output, params, train_loader_creator, validation_loader_creator, m
     optimizer = torch.optim.Adam(
         model.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'])
     
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5, threshold=0.001)
+    scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lambda e: 0.5**e)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, mode='min', factor=0.5, patience=5, threshold=0.001)
     
+    # lossfn = nn.MSELoss()
     lossfn = nn.HuberLoss()
 
-    for epoch in range(0, num_epochs):
+    for epoch in range(start_epoch, num_epochs):
+
+        scheduler.step(epoch)
 
         train_loaders_iter = train_loader_creator.dataloader_slices_iter(num_training_slices)
         for slice_index, train_loader in enumerate(train_loaders_iter):
@@ -83,13 +91,15 @@ def train(dir_output, params, train_loader_creator, validation_loader_creator, m
             
             writer.add_scalar("loss/train", train_loss, writer_step)
             writer.add_scalar("accuracy/train", train_accuracy, writer_step)
-            print(f"Training loss={train_loss}, accuracy={train_accuracy}")
+            print(f"Training loss={train_loss}")
 
             # validate every training slice
 
             model.eval()
             valid_acc_loss = 0.0
             valid_acc_accuracy = 0.0
+            valid_acc_accuracy_20 = 0.0
+            valid_acc_accuracy_advantage = 0.0
             valid_samples = 0
 
             valid_loader = validation_loader_creator.create_single_loader()
@@ -106,19 +116,28 @@ def train(dir_output, params, train_loader_creator, validation_loader_creator, m
 
                 valid_acc_loss += loss.item() * batch_size
                 valid_acc_accuracy += relative_threshold_accuracy(true_evals, estimate) * batch_size
+                valid_acc_accuracy_20 += relative_threshold_accuracy(true_evals, estimate, rel_threshold=0.2, base_threshold=20) * batch_size
+                valid_acc_accuracy_advantage += advantage_accuracy(true_evals, estimate) * batch_size
                 valid_samples += batch_size
                 
             valid_loss = valid_acc_loss / valid_samples
             valid_accuracy = valid_acc_accuracy / valid_samples
+            valid_accuracy_20 = valid_acc_accuracy_20 / valid_samples
+            valid_accuracy_advantage = valid_acc_accuracy_advantage / valid_samples
             
-            scheduler.step(valid_loss)
+            # scheduler.step(valid_loss)
             writer.add_scalar("hyperparams/learning_rate", scheduler.get_last_lr()[0], writer_step)
 
             writer.add_scalar("loss/validation", valid_loss, writer_step)
             writer.add_scalar("accuracy/validation", valid_accuracy, writer_step)
+            writer.add_scalar("accuracy/validation_20", valid_accuracy_20, writer_step)
+            writer.add_scalar("accuracy/validation_advantage", valid_accuracy_advantage, writer_step)
             writer.flush()
-            print(f"Validation loss={valid_loss}, accuracy={valid_accuracy}")
+            print(f"Validation loss={valid_loss}")
 
             checkpoint_path = dir_output / f"nnue_{sub_epoch_name}.pt"
             save_checkpoint(model, optimizer, epoch, checkpoint_path)
+
+        # scheduler.step(epoch)
+
 

@@ -1,0 +1,4 @@
+
+
+dir_engines: ${oc.env:DIR_STALEMATER}/engines
+path_executable: ${oc.env:DIR_STALEMATER}/bin/stalemater

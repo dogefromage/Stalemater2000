@@ -1,6 +1,3 @@
-
-
-
 CC = g++
 # CC_FLAGS = -Wpedantic -Wall -Wextra -O1 -I./include -std=c++20
 CC_FLAGS = -Wpedantic -Wall -Wextra -g -I./include -std=c++20
@@ -18,11 +15,15 @@ TARGET = $(BIN_DIR)/$(EXEC_NAME)
 
 all: $(TARGET)
 
+$(BUILD_DIR)/nnue_data.o: $(SRC_DIR)/nnue_data.s
+	@mkdir -p $(BUILD_DIR)
+	as -o $(BUILD_DIR)/nnue_data.o $(SRC_DIR)/nnue_data.s
+
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CC_FLAGS) -c $< -o $@
 
-$(TARGET): $(OBJ_FILES)
+$(TARGET): $(BUILD_DIR)/nnue_data.o $(OBJ_FILES)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $^ -o $@ $(LINK_FLAGS)
 

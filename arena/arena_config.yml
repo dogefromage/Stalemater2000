@@ -1,0 +1,7 @@
+
+engine_folder: /home/seb/git/Stalemater2000/engines
+csv_path: /home/seb/git/Stalemater2000/arena/game_results.csv
+
+time_limit: 50
+depth: 5
+games_per_pair: 3

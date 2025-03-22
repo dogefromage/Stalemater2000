@@ -6,7 +6,7 @@ import torch
 
 from dataset import DataloaderCreator
 from train import train
-from model import NNUE
+from model import NNUE, load_checkpoint
 
 def run_experiment(dir_output, dir_data, params):
 
@@ -19,9 +19,11 @@ def run_experiment(dir_output, dir_data, params):
 
     train_loader_creator = DataloaderCreator(path_train_set, train_count, params['batch_size'], params['num_workers'])
     validation_loader_creator = DataloaderCreator(path_validation_set, valid_size, params['batch_size'], params['num_workers'])
-    model = NNUE()
 
-    train(dir_output, params, train_loader_creator, validation_loader_creator, model)
+    model = NNUE()
+    start_epoch = load_checkpoint("/home/seb/git/Stalemater2000/nnue/output/exp_2025-03-21_15-28-50/nnue_0001-0.pt", model)
+    
+    train(dir_output, params, train_loader_creator, validation_loader_creator, model, start_epoch)
 
 def get_datetime_string():
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -42,12 +44,13 @@ if __name__ == '__main__':
 
     params = {
         'learning_rate': 1e-3,
-        'weight_decay': 1e-5,
+        # 'weight_decay': 1e-6,
+        'weight_decay': 0,
 
         'batch_size': 256,
         'num_epochs': 100,
         'num_training_slices': 10,
-        'num_workers': 4,
+        'num_workers': 0,
     }
 
     run_experiment(dir_output, dir_data, params)

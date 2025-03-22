@@ -10,3 +10,4 @@ nnue/output
 nnue/logs
 __pycache__
 *.pt
+.pytest_cache

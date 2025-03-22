@@ -1,0 +1,21 @@
+name: stalemater
+dependencies:
+  - numpy
+  - pandas
+  - ipykernel
+  - matplotlib
+  - pip
+  - pip:
+    - tensorboard
+    - chess
+    - zstandard
+    - torch
+    - torchvision
+    - tqdm
+    - standard-imghdr
+    - torchviz 
+    - omegaconf
+    - pytest
+
+
+# INSTALL: conda env update -f environment.yml
