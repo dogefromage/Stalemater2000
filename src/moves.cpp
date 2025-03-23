@@ -3,6 +3,10 @@
 #include <iostream>
 
 std::string LanMove::toString() const {
+    if (isNullMove()) {
+        return "0000";
+    }
+
     std::string msg = squareIndexToString(from) + squareIndexToString(to);
 
     switch (promotion) {

@@ -5,6 +5,8 @@
 typedef short Score;
 constexpr Score SCORE_CHECKMATE = 30000;
 
+constexpr Score MAX_EVAL = 28000;
+
 // https://www.chessprogramming.org/Simplified_Evaluation_Function
 
 constexpr Score PIECE_VALUES[] = {
@@ -97,4 +99,4 @@ constexpr Score KING_NUMBER_ATTACKERS_WEIGHT[] = {
     99, 99, 99, 99, 99, 99, 99, 99, 99 // prevent out of range
 };
 
-Score evaluate_relative(Board& board);
+Score evaluate_qualitative(Board& board);

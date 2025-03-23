@@ -159,7 +159,7 @@ Score evaluateKingSafety(Board& board, bool isWhite, float endgameFactor) {
     return totalKingSafety;
 }
 
-Score evaluate_classic(Board& board) {
+Score evaluate_qualitative(Board& board) {
     Score eval = 0;
 
     int totalPopulation = countBits(board.getOccupied());
@@ -195,9 +195,4 @@ Score evaluate_classic(Board& board) {
     */
 
     return eval;
-}
-
-Score evaluate_relative(Board& board) {
-    // return evaluate_classic(board);
-    return (Score)board.evaluate_nnue();
 }

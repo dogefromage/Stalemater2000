@@ -84,8 +84,7 @@ about both historic and leading-edge approaches.
 
 The bitboard logic I used was really well explained in [this Youtube series by Logic Crazy Chess](https://www.youtube.com/watch?v=V_2-LOvr5E8&list=PLQV5mozTHmacMeRzJCW_8K3qw2miYqd0c).
 
-## Todo
-* Improve static evaluation
+## Future ideas
 * Support for all UCI search parameters
-* Quiescence search
-* Get it working in online tournaments (e.g. lichess.org)
+* [Parallel Search](https://www.chessprogramming.org/Lazy_SMP)
+* [Magic Boards](https://www.chessprogramming.org/Magic_Bitboards)

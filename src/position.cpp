@@ -346,20 +346,32 @@ void Position::print(bool moves) {
     if (board.hasCheck(CheckFlags::BlackInCheck)) std::cout << "black in check, ";
     std::cout << "\n\n";
 
-    Score eval = evaluate_relative(board);
-    if (board.getSideToMove() == Side::Black) {
-        eval = -eval;
-    }
-    std::cout << "Eval: " << eval << "\n\n";
+    // Score eval = evaluate_relative(board);
+    // if (board.getSideToMove() == Side::Black) {
+    //     eval = -eval;
+    // }
+    // std::cout << "Eval: " << eval << "\n\n";
 
     if (moves) {
         MoveList pseudoMoves;
         board.generatePseudoMoves(pseudoMoves);
 
-        std::cout << "Pseudo moves: (" + std::to_string(pseudoMoves.size()) + ")\n";
+        std::cout << "Pseudo moves: (" + std::to_string(pseudoMoves.size) + ")\n";
         for (GenMove genMove : pseudoMoves) {
             std::cout << genMove.toString() << std::endl;
         }
         std::cout << "\n";
+    }
+}
+
+void Position::generateLegalMoves(MoveList& moveList) {
+    MoveList pseudoMoves;
+    board.generatePseudoMoves(pseudoMoves);
+    for (const GenMove& m : pseudoMoves) {
+        Position testPosition = *this;
+        testPosition.movePseudoInPlace(m);
+        if (testPosition.board.isLegal()) {
+            moveList.add(m);
+        }
     }
 }

@@ -1,41 +1,90 @@
 #include "bitmath.h"
 #include "board.h"
 
-/*
-void Board::generateLegalMoves(MoveList& moveList) const {
-    MoveList pseudoMoves;
-    pseudoMoves.reserve(40);
-    generatePseudoMoves(pseudoMoves);
-    moveList.reserve(pseudoMoves.size()); // less or equal length than pseudomoves
-    for (const GenMove& m : pseudoMoves) {
-        Board testBoard = movePseudo(m);
-        if (testBoard.isLegal()) {
-            moveList.push_back(m);
-        }
-    }
-}
-*/
-
 void Board::generatePseudoMoves(MoveList& moveList) {
-    moveList.reserve(42);
     useDerivedState();
 
-    genKnightMoves(moveList);  // horseys
-    genKingMoves(moveList);    // king
+    genKnightMoves(moveList);
+    genKingMoves(moveList);
 
     if (side == Side::White) {
-        genMovesSlidingPieces(moveList, BitBoards::BW, false, true);  // bishops
-        genMovesSlidingPieces(moveList, BitBoards::RW, true, false);  // rooks
-        genMovesSlidingPieces(moveList, BitBoards::QW, true, true);   // queens
-        genPawnMovesWhite(moveList);                                  // pawns
-        genCastlesWhite(moveList);                                    // castles
+        genMovesSlidingPieces(moveList, BitBoards::BW, false, true);
+        genMovesSlidingPieces(moveList, BitBoards::RW, true, false);
+        genMovesSlidingPieces(moveList, BitBoards::QW, true, true);
+        genPawnMovesWhite(moveList);
+        genCastlesWhite(moveList);
     } else {
-        genMovesSlidingPieces(moveList, BitBoards::BB, false, true);  // bishops
-        genMovesSlidingPieces(moveList, BitBoards::RB, true, false);  // rooks
-        genMovesSlidingPieces(moveList, BitBoards::QB, true, true);   // queens
-        genPawnMovesBlack(moveList);                                  // pawns
-        genCastlesBlack(moveList);                                    // castles
+        genMovesSlidingPieces(moveList, BitBoards::BB, false, true);
+        genMovesSlidingPieces(moveList, BitBoards::RB, true, false);
+        genMovesSlidingPieces(moveList, BitBoards::QB, true, true);
+        genPawnMovesBlack(moveList);
+        genCastlesBlack(moveList);
     };
+}
+
+void Board::orderAndFilterMoveList(MoveList& moveList, const LanMove& pv, bool capturesOnly) const {
+
+    /**
+     * TODO: this could be sped up by directly taking the optimal move from an iterator automatically sorts and returns a reference. This would avoid copying
+     */
+
+    int numCaptures = 0;
+
+    // score all moves
+    for (GenMove& m : moveList) {
+        bool isCapture = m.capture == CaptureType::Capture;
+        if (isCapture) {
+            numCaptures++;
+        }
+
+        if (m.matchesLanMove(pv)) {
+            // PV
+            m.score = 0;
+        } else if (m.type == MoveTypes::Promote) {
+            // Promotion
+            m.score = 1;
+        } else if (isCapture) {
+            // Capture
+            m.score = 2;
+        } else {
+            // Other
+            m.score = 3;
+        }
+
+        if (capturesOnly && !isCapture) {
+            // overwrite other score since not capture here
+            m.score = 10;
+        }
+    }
+
+    int sortSpace = capturesOnly ? numCaptures : moveList.size - 1;
+
+    // sort
+    for (int i = 0; i < sortSpace; i++) {
+
+        int minScore = moveList.list[i].score;
+        int minIndex = i;
+
+        for (int j = i + 1; j < moveList.size; j++) {
+            int currScore = moveList.list[j].score;
+            if (currScore < minScore) {
+                minScore = currScore;
+                minIndex = j;
+            }
+        }
+
+        // swap
+        if (minIndex != i) {
+            GenMove temp = moveList.list[i];
+            moveList.list[i] = moveList.list[minIndex];
+            moveList.list[minIndex] = temp;
+        }
+    }    
+
+    // prune
+    if (capturesOnly) {
+        moveList.size = numCaptures;
+    }
 }
 
 void Board::genCastlesWhite(MoveList& moveList) const {
@@ -43,14 +92,14 @@ void Board::genCastlesWhite(MoveList& moveList) const {
         bool lineUnderAttack = _unsafeForWhite & CASTLE_MASK_W_K_PATH;
         bool obstructed = _occupied & CASTLE_MASK_W_K_GAP;
         if (!lineUnderAttack && !obstructed) {
-            moveList.push_back(GenMove(4, 6, MovePromotions::None, BitBoards::KW, MoveTypes::CastleWhiteKing));
+            moveList.add(GenMove(4, 6, MovePromotions::None, BitBoards::KW, MoveTypes::CastleWhiteKing, CaptureType::NonCapture));
         }
     }
     if (castlingRights & (1 << (int)CastlingTypes::WhiteQueen)) {
         bool lineUnderAttack = _unsafeForWhite & CASTLE_MASK_W_Q_PATH;
         bool obstructed = _occupied & CASTLE_MASK_W_Q_GAP;
         if (!lineUnderAttack && !obstructed) {
-            moveList.push_back(GenMove(4, 2, MovePromotions::None, BitBoards::KW, MoveTypes::CastleWhiteQueen));
+            moveList.add(GenMove(4, 2, MovePromotions::None, BitBoards::KW, MoveTypes::CastleWhiteQueen, CaptureType::NonCapture));
         }
     }
 }
@@ -60,14 +109,14 @@ void Board::genCastlesBlack(MoveList& moveList) const {
         bool lineUnderAttack = _unsafeForBlack & CASTLE_MASK_B_K_PATH;
         bool obstructed = _occupied & CASTLE_MASK_B_K_GAP;
         if (!lineUnderAttack && !obstructed) {
-            moveList.push_back(GenMove(60, 62, MovePromotions::None, BitBoards::KB, MoveTypes::CastleBlackKing));
+            moveList.add(GenMove(60, 62, MovePromotions::None, BitBoards::KB, MoveTypes::CastleBlackKing, CaptureType::NonCapture));
         }
     }
     if (castlingRights & (1 << (int)CastlingTypes::BlackQueen)) {
         bool lineUnderAttack = _unsafeForBlack & CASTLE_MASK_B_Q_PATH;
         bool obstructed = _occupied & CASTLE_MASK_B_Q_GAP;
         if (!lineUnderAttack && !obstructed) {
-            moveList.push_back(GenMove(60, 58, MovePromotions::None, BitBoards::KB, MoveTypes::CastleBlackQueen));
+            moveList.add(GenMove(60, 58, MovePromotions::None, BitBoards::KB, MoveTypes::CastleBlackQueen, CaptureType::NonCapture));
         }
     }
 }
@@ -89,7 +138,7 @@ void Board::genMovesSlidingPieces(MoveList& moveList, BitBoards bb, bool paral, 
         // mask with board
         moves &= validToSquares;
         // add to list
-        addMovesFromBitboard(moveList, moves, i, bb);
+        addMovesFromBitboardSingle(moveList, moves, i, bb);
     }
 }
 
@@ -114,7 +163,7 @@ void Board::genKingMoves(MoveList& moveList) const {
             moves &= ~FILE_A;
         moves &= validToSquares;
         // add to list
-        addMovesFromBitboard(moveList, moves, i, bb);
+        addMovesFromBitboardSingle(moveList, moves, i, bb);
     }
 }
 
@@ -139,7 +188,7 @@ void Board::genKnightMoves(MoveList& moveList) const {
 
         moves &= validToSquares;
         // add to list
-        addMovesFromBitboard(moveList, moves, i, bb);
+        addMovesFromBitboardSingle(moveList, moves, i, bb);
     }
 }
 
@@ -149,28 +198,28 @@ void Board::genPawnMovesWhite(MoveList& moveList) const {
     U64 empty = ~_occupied;
     // queenwards capture
     pawnMoves = (pawns << 7) & ~FILE_H & ~RANK_8 & (_blackPieces | enpassantTarget);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & ~enpassantTarget, 7, BitBoards::PW, MoveTypes::Normal);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & enpassantTarget, 7, BitBoards::PW, MoveTypes::EnpasQueen);
+    addMovesFromBitboardParallel(moveList, pawnMoves & ~enpassantTarget, 7, BitBoards::PW, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves & enpassantTarget, 7, BitBoards::PW, MoveTypes::EnpasQueen);
     // kingwards capture
     pawnMoves = (pawns << 9) & ~FILE_A & ~RANK_8 & (_blackPieces | enpassantTarget);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & ~enpassantTarget, 9, BitBoards::PW, MoveTypes::Normal);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & enpassantTarget, 9, BitBoards::PW, MoveTypes::EnpasKing);
+    addMovesFromBitboardParallel(moveList, pawnMoves & ~enpassantTarget, 9, BitBoards::PW, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves & enpassantTarget, 9, BitBoards::PW, MoveTypes::EnpasKing);
     // Forward one
     pawnMoves = (pawns << 8) & ~RANK_8 & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, 8, BitBoards::PW, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves, 8, BitBoards::PW, MoveTypes::Normal);
     // Forward two
     pawnMoves = (((pawns << 8) & empty) << 8) & WHITE_SIDE & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, 16, BitBoards::PW, MoveTypes::PawnDouble);  // add move type
+    addMovesFromBitboardParallel(moveList, pawnMoves, 16, BitBoards::PW, MoveTypes::PawnDouble);  // add move type
 
     // Promote diag left
     pawnMoves = (pawns << 7) & ~FILE_H & RANK_8 & _blackPieces;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, 7, BitBoards::PW);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, 7, BitBoards::PW);
     // Promote diag right
     pawnMoves = (pawns << 9) & ~FILE_A & RANK_8 & _blackPieces;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, 9, BitBoards::PW);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, 9, BitBoards::PW);
     // Promote forward
     pawnMoves = (pawns << 8) & RANK_8 & empty;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, 8, BitBoards::PW);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, 8, BitBoards::PW);
 }
 
 void Board::genPawnMovesBlack(MoveList& moveList) const {
@@ -179,28 +228,28 @@ void Board::genPawnMovesBlack(MoveList& moveList) const {
     U64 empty = ~_occupied;
     // kingwards
     pawnMoves = (pawns >> 7) & ~FILE_A & ~RANK_1 & (_whitePieces | enpassantTarget);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & ~enpassantTarget, -7, BitBoards::PB, MoveTypes::Normal);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & enpassantTarget, -7, BitBoards::PB, MoveTypes::EnpasKing);
+    addMovesFromBitboardParallel(moveList, pawnMoves & ~enpassantTarget, -7, BitBoards::PB, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves & enpassantTarget, -7, BitBoards::PB, MoveTypes::EnpasKing);
     // queenwards
     pawnMoves = (pawns >> 9) & ~FILE_H & ~RANK_1 & (_whitePieces | enpassantTarget);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & ~enpassantTarget, -9, BitBoards::PB, MoveTypes::Normal);
-    addMovesFromBitboardAbsolute(moveList, pawnMoves & enpassantTarget, -9, BitBoards::PB, MoveTypes::EnpasQueen);
+    addMovesFromBitboardParallel(moveList, pawnMoves & ~enpassantTarget, -9, BitBoards::PB, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves & enpassantTarget, -9, BitBoards::PB, MoveTypes::EnpasQueen);
     // Forward one
     pawnMoves = (pawns >> 8) & ~RANK_1 & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, -8, BitBoards::PB, MoveTypes::Normal);
+    addMovesFromBitboardParallel(moveList, pawnMoves, -8, BitBoards::PB, MoveTypes::Normal);
     // Forward two
     pawnMoves = (((pawns >> 8) & empty) >> 8) & BLACK_SIDE & empty;
-    addMovesFromBitboardAbsolute(moveList, pawnMoves, -16, BitBoards::PB, MoveTypes::PawnDouble);  // add move type
+    addMovesFromBitboardParallel(moveList, pawnMoves, -16, BitBoards::PB, MoveTypes::PawnDouble);  // add move type
 
     // Promote diag left
     pawnMoves = (pawns >> 7) & ~FILE_A & RANK_1 & _whitePieces;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, -7, BitBoards::PB);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, -7, BitBoards::PB);
     // Promote diag right
     pawnMoves = (pawns >> 9) & ~FILE_H & RANK_1 & _whitePieces;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, -9, BitBoards::PB);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, -9, BitBoards::PB);
     // Promote forward
     pawnMoves = (pawns >> 8) & RANK_1 & empty;
-    addMovesFromBitboardPawnPromote(moveList, pawnMoves, -8, BitBoards::PB);
+    addMovesFromBitboardParallelPromote(moveList, pawnMoves, -8, BitBoards::PB);
 }
 
 // maybe use table for this part
@@ -225,33 +274,38 @@ U64 Board::getDandAntiDMoves(int index) const {
     return (diag & DIAG_MASK[d]) | (antiDiag & ANTIDIAG_MASK[ad]);
 }
 
-void Board::addMovesFromBitboard(MoveList& moves, U64 destinations, int position, BitBoards bb) {
+void Board::addMovesFromBitboardSingle(MoveList& moves, U64 destinations, int position, BitBoards bb) const {
     int i = 0;
     while (destinations) {
         i = trailingZeros(destinations);
-        destinations ^= 1ULL << i;  // unset this bit
-        moves.push_back(GenMove(position, i, MovePromotions::None, bb, MoveTypes::Normal));
+        U64 hot = 1ULL << i;
+        destinations ^= hot;  // unset this bit
+        CaptureType cap = hot & _occupied ? CaptureType::Capture : CaptureType::NonCapture;
+        moves.add(GenMove(position, i, MovePromotions::None, bb, MoveTypes::Normal, cap));
     }
 }
 
-void Board::addMovesFromBitboardPawnPromote(MoveList& moves, U64 movedBoard, int offset, BitBoards bb) {
+void Board::addMovesFromBitboardParallelPromote(MoveList& moves, U64 destinations, int offset, BitBoards bb) const {
     int i = 0;
-    while (movedBoard) {
-        i = trailingZeros(movedBoard);
-        movedBoard ^= 1ULL << i;  // unset this bit
-        moves.push_back(GenMove(i - offset, i, MovePromotions::Q, bb, MoveTypes::Promote));
-        moves.push_back(GenMove(i - offset, i, MovePromotions::R, bb, MoveTypes::Promote));
-        moves.push_back(GenMove(i - offset, i, MovePromotions::N, bb, MoveTypes::Promote));
-        moves.push_back(GenMove(i - offset, i, MovePromotions::B, bb, MoveTypes::Promote));
+    while (destinations) {
+        i = trailingZeros(destinations);
+        U64 hot = 1ULL << i;
+        destinations ^= hot;  // unset this bit
+        CaptureType cap = hot & _occupied ? CaptureType::Capture : CaptureType::NonCapture;
+        moves.add(GenMove(i - offset, i, MovePromotions::Q, bb, MoveTypes::Promote, cap));
+        moves.add(GenMove(i - offset, i, MovePromotions::R, bb, MoveTypes::Promote, cap));
+        moves.add(GenMove(i - offset, i, MovePromotions::N, bb, MoveTypes::Promote, cap));
+        moves.add(GenMove(i - offset, i, MovePromotions::B, bb, MoveTypes::Promote, cap));
     }
 }
 
-void Board::addMovesFromBitboardAbsolute(MoveList& moves, U64 movedBoard, int offset, BitBoards bb, MoveTypes type) {
+void Board::addMovesFromBitboardParallel(MoveList& moves, U64 destinations, int offset, BitBoards bb, MoveTypes type) const {
     int i = 0;
-    while (movedBoard) {
-        i = trailingZeros(movedBoard);
-        movedBoard ^= 1ULL << i;  // unset this bit
-
-        moves.push_back(GenMove(i - offset, i, MovePromotions::None, bb, type));
+    while (destinations) {
+        i = trailingZeros(destinations);
+        U64 hot = 1ULL << i;
+        destinations ^= hot;  // unset this bit
+        CaptureType cap = hot & _occupied ? CaptureType::Capture : CaptureType::NonCapture;
+        moves.add(GenMove(i - offset, i, MovePromotions::None, bb, type, cap));
     }
 }

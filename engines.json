@@ -1,0 +1,26 @@
+[
+    {
+        "command": "./stockfish",
+        "name": "stockfish",
+        "workingDirectory": "/home/seb/git/Stalemater2000/engines",
+        "protocol": "uci"
+    },
+    {
+        "command": "./stalemater_21_03_2025_nnue",
+        "name": "stalemater_21_03_2025_nnue",
+        "workingDirectory": "/home/seb/git/Stalemater2000/engines",
+        "protocol": "uci"
+    },
+    {
+        "command": "./stalemater_21_03_2025_static",
+        "name": "stalemater_21_03_2025_static",
+        "workingDirectory": "/home/seb/git/Stalemater2000/engines",
+        "protocol": "uci"
+    },
+    {
+        "command": "./stalemater_23_03_2025_quiescence",
+        "name": "stalemater_23_03_2025_quiescence",
+        "workingDirectory": "/home/seb/git/Stalemater2000/engines",
+        "protocol": "uci"
+    }
+]   

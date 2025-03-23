@@ -1,0 +1,14 @@
+
+
+depth=5 -pgnout log
+
+
+
+
+cutechess-cli -tournament gauntlet -concurrency 1 -pgnout output_pgn_file.pgn -engine conf=sf tc=5.2+0.0832 -engine conf=lc0 tc=4+0.064 -draw movenumber=40 movecount=4 score=8 -resign movecount=4 score=500 -each proto=uci -openings file=blah/openings-6ply-1000.pgn policy=round -repeat -rounds 500 -games 2
+
+cutechess-cli -tournament gauntlet -concurrency 4 -pgnout output_pgn_file.pgn -engine conf=stalemater_23_03_2025_quiescence tc=60+1 -engine conf=stalemater_21_03_2025_static tc=60+1 -engine conf=stalemater_21_03_2025_nnue tc=60+1 -each proto=uci -rounds 2 -games 2
+
+
+
+

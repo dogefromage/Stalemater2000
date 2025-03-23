@@ -18,5 +18,6 @@ class Position {
     static Position startPos();
     static Position fromFen(const std::vector<std::string>& arguments);
 
+    void generateLegalMoves(MoveList& moveList);
     void movePseudoInPlace(GenMove move);
 };

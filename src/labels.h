@@ -2,6 +2,11 @@
 
 typedef unsigned long long U64;
 
+// https://www.chessprogramming.org/Encoding_Moves#MoveIndex
+const int MAXIMUM_POSSIBLE_MOVES = 218;
+const int ACCUMULATOR_MAX_DEPTH = 64;
+const int MAX_BOARD_EDITS_PER_MOVE = 8;
+
 enum class BitBoards {
 	PW, RW, NW, BW, QW, KW, PB, RB, NB, BB, QB, KB,
 };
@@ -20,6 +25,11 @@ enum class MoveTypes {
 	CastleWhiteQueen,
 	CastleBlackKing,
 	CastleBlackQueen,
+};
+
+enum class CaptureType {
+	NonCapture,
+	Capture,
 };
 
 enum class CastlingTypes {

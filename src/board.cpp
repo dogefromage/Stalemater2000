@@ -73,7 +73,9 @@ void Board::placePiece(BitBoards bb, int square) {
     assert(~(boards[(int)bb] & (1ULL << square)));
     boards[(int)bb] |= 1ULL << square;
     hash ^= ZobristValues[64 * (int)bb + square];
-    accumulator.add((int)bb, square);
+    if (editRecorder) {
+        editRecorder->record(BoardEdit(BoardEditType::Add, (int)bb, square));
+    }
 }
 
 void Board::removePiece(BitBoards bb, int square) {
@@ -81,7 +83,9 @@ void Board::removePiece(BitBoards bb, int square) {
     assert(boards[(int)bb] & (1ULL << square));
     boards[(int)bb] &= ~(1ULL << square);
     hash ^= ZobristValues[64 * (int)bb + square];
-    accumulator.remove((int)bb, square);
+    if (editRecorder) {
+        editRecorder->record(BoardEdit(BoardEditType::Remove, (int)bb, square));
+    }
 }
 
 void Board::switchSide() {
@@ -307,6 +311,12 @@ U64 Board::getUnsafeForBlack() {
     return _unsafeForBlack;
 }
 
-int32_t Board::evaluate_nnue() {
-    return accumulator.forward(side, getOccupied());
+void BoardEditRecorder::record(BoardEdit edit) {
+    assert(numEdits < MAX_BOARD_EDITS_PER_MOVE);
+    edits[numEdits] = edit;
+    numEdits++;
+}
+
+void BoardEditRecorder::clear() {
+    numEdits = 0;
 }

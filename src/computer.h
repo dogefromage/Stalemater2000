@@ -14,6 +14,7 @@
 #include "board.h"
 #include "eval.h"
 #include "position.h"
+#include "nnue.h"
 
 enum class ComputerTests {
     Perft,
@@ -41,10 +42,15 @@ struct ComputerInfo {
     std::string pv;
 };
 
+// enum class SearchNodeType {
+//     Branch,
+//     Terminal,
+// };
+
 struct SearchNode {
-    Score score;
-    short depth;
     GenMove pv;
+    Score score;
+    short knownDepth;
 };
 
 class ComputerSearchTask {
@@ -56,6 +62,8 @@ class ComputerSearchTask {
     std::chrono::_V2::system_clock::time_point lastTime, startTime;
     int iterativeDepth;
 
+    ComputerSearchTask() {}
+
     ComputerSearchTask(Position rootPosition) {
         this->rootPosition = rootPosition;
         currNodesSearched = prevTotalNodesSearched = 0;
@@ -65,27 +73,31 @@ class ComputerSearchTask {
 
 class Computer {
    public:
+    std::atomic<bool> isWorking = false;
+
+    ComputerSearchTask task;
+
     // needs to hold output lock to access info and bestmove
     std::mutex outputLock;
     std::vector<ComputerInfo> infoBuffer = {};
     std::unique_ptr<LanMove> bestMove = NULL;
 
-    std::atomic<bool> isWorking = false;
-
     void stopWorking();
     void launchTest(Position root, ComputerTests testType, int depth);
-    void launchSearch(ComputerSearchTask* task);
+    void launchSearch();
 
    private:
     std::unordered_map<U64, SearchNode> searchTable;
+    AccumulatorStack accumulators;
 
+    Score evaluate_relative(Board& board, int depth);
     long perft(Position& curr, int depth);
     void launchPerft(Position& root, int depth);
     void launchZobrist(Position& root, int depth);
     bool mustStopSearching();
-    Score search(Position curr, int remainingDepth, Score alpha, Score beta);
+    Score quiescence(Position& curr, int currentDepth, Score alpha, Score beta);
+    Score search(Position& curr, int currentDepth, Score alpha, Score beta);
     std::string getPvList(Position board);
     void generateComputerInfo();
     
-    ComputerSearchTask* task;
 };

@@ -7,7 +7,7 @@
 #include "uci.h"
 #include "nnue.h"
 
-int main(int argc, char* argv[]) {
+int main(/* int argc, char* argv[] */) {
     // IMPORTANT disable output buffering for both std::cout and printf
     std::cout.setf(std::ios::unitbuf);
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -15,9 +15,8 @@ int main(int argc, char* argv[]) {
     initLogging();
     InitZobrist();
 
-    std::string argv_str(argv[0]);
-    std::string base = argv_str.substr(0, argv_str.find_last_of("/"));
-    
+    // std::string argv_str(argv[0]);
+    // std::string base = argv_str.substr(0, argv_str.find_last_of("/"));
     // init_nnue(base + "/../weights/nnue_2025-02-27 17:18:02.625752.csv");
 
     UCI uci;

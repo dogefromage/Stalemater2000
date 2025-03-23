@@ -98,8 +98,21 @@ void UCI::consumeOutput() {
     std::lock_guard<std::mutex> guard(computer.outputLock);
 
     for (const ComputerInfo& info : computer.infoBuffer) {
-        printf("info depth %ld score cp %ld nodes %ld nps %ld pv %s\n",
-               info.depth, info.score, info.nodes, info.nps, info.pv.c_str());
+        char score_string[100];
+
+        if (info.score < -MAX_EVAL || info.score > MAX_EVAL) {
+            // convert to mate number
+            int sign = info.score > 0 ? 1 : -1;
+            int mateRel = (SCORE_CHECKMATE - std::abs(info.score) + 1) / 2;
+            int mateNumber = mateRel * sign;
+
+            sprintf(score_string, "score mate %d", mateNumber);
+        } else {
+            sprintf(score_string, "score cp %ld", info.score);
+        }
+
+        printf("info depth %ld %s nodes %ld nps %ld pv %s\n",
+               info.depth, score_string, info.nodes, info.nps, info.pv.c_str());
     }
     computer.infoBuffer.clear();
 
@@ -130,6 +143,11 @@ void UCI::handleUciNewGame(std::list<std::string>& params) {
 }
 
 void UCI::handleGo(std::list<std::string>& params) {
+    if (computer.isWorking) {
+        printf("Cannot start search, computer is working");
+        return;
+    }
+
     if (!params.empty()) {
         std::string firstKeyword = params.front();
         bool isPerft = firstKeyword == "perft";
@@ -151,10 +169,8 @@ void UCI::handleGo(std::list<std::string>& params) {
 
     // NORMAL SEARCH
     // https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
-
-    ComputerSearchTask* task = new ComputerSearchTask(hist.current());
-
-    task->params.attributes = {
+    ComputerSearchTask newTask(hist.current());
+    newTask.params.attributes = {
         {"wtime", -1},
         {"btime", -1},
         {"winc", -1},
@@ -177,12 +193,12 @@ void UCI::handleGo(std::list<std::string>& params) {
             if (!optInt.has_value()) {
                 continue;
             }
-            task->params.attributes[paramStr] = optInt.value();
+            newTask.params.attributes[paramStr] = optInt.value();
             continue;
         }
 
         if (allBoolParams.find(paramStr) != allBoolParams.end()) {
-            task->params.attributes[paramStr] = 1;
+            newTask.params.attributes[paramStr] = 1;
             continue;
         }
 
@@ -192,7 +208,7 @@ void UCI::handleGo(std::list<std::string>& params) {
                 std::string searchMove = nextKeyword(params, "searchmove move").value();
                 std::optional<LanMove> parsedMove = LanMove::parseLanMove(searchMove);
                 if (parsedMove.has_value()) {
-                    task->params.searchmoves.push_back(parsedMove.value());
+                    newTask.params.searchmoves.push_back(parsedMove.value());
                 } else {
                     printf("invalid move \"%s\"\n", searchMove.c_str());
                 }
@@ -203,7 +219,8 @@ void UCI::handleGo(std::list<std::string>& params) {
         printf("ERROR invalid param \"%s\"\n", param.c_str());
     }
 
-    std::thread searchThread(&Computer::launchSearch, &computer, task);
+    computer.task = newTask;
+    std::thread searchThread(&Computer::launchSearch, &computer);
     searchThread.detach();
 }
 
@@ -279,20 +296,12 @@ void UCI::handleQuit(std::list<std::string>& params) {
 
 void UCI::handleMovelist(std::list<std::string>& params) {
     (void)params;
-    MoveList all, legal;
-    hist.current().board.generatePseudoMoves(all);
-
-    for (GenMove& m : all) {
-        Position next(hist.current());
-        next.movePseudoInPlace(m);
-        if (next.board.isLegal()) {
-            legal.push_back(m);
-        }
-    }
+    MoveList moves;
+    hist.current().generateLegalMoves(moves);
 
     std::cout << "Legal moves:" << std::endl;
 
-    for (GenMove& m : legal) {
+    for (GenMove& m : moves) {
         std::cout << m.toString() << std::endl;
     }
 }
