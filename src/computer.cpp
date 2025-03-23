@@ -416,11 +416,15 @@ void Computer::launchSearch() {
         Score score = search(task.rootPosition, 0, -SCORE_CHECKMATE, SCORE_CHECKMATE);
         generateComputerInfo();
 
-        bool isEndingPosition = std::abs(score) == SCORE_CHECKMATE;
-        if (isEndingPosition) {
-            // root position is terminal node
-            break;
+        if (isWorking) {
+            // <=> was complete search iteration
+            bool someSideIsCheckmating = std::abs(score) > MAX_EVAL;
+            if (someSideIsCheckmating) {
+                // root position is terminal node
+                break;
+            }
         }
+
     }
 
     auto currPv = searchTable.find(task.rootPosition.board.getHash());

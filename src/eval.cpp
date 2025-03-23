@@ -194,5 +194,9 @@ Score evaluate_qualitative(Board& board) {
     if (board.castling & CASTLE_QB) eval -= 8;
     */
 
+    if (board.getSideToMove() == Side::Black) {
+        eval = -eval;
+    }
+
     return eval;
 }
