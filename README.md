@@ -1,8 +1,9 @@
-# Stalemater2000 - a C++ chess engine from scratch
+# Stalemater2000 - a C++ chess engine from scratch with NNUE
 
-Stalemater2000 uses a classical brute-force approach for finding the best chess move in a position. It uses bitboards, alpha-beta pruning and transposition hash tables. The engine is written in C++ and runs in the command line featuring the [UCI protocol for inputs and communication with other software](https://www.shredderchess.com/chess-features/uci-universal-chess-interface.html).
+Stalemater2000 searches for the best chess move in a position using iterative deepening framework like most popular chess engines. The engine uses a simple two layer [NNUE (efficiently updatable neural network)](https://www.chessprogramming.org/NNUE) which predict the evaluation of the leaf nodes in the search space given the board squares as input features. The engine is written in C++ with no dependencies and runs in the command line featuring the [UCI protocol for inputs and communication with other software](https://www.shredderchess.com/chess-features/uci-universal-chess-interface.html). The NNUE model is trained using torch and uses the [lichess.org evaluation dataset](https://database.lichess.org/#evals).
 
-This repository is quite a construction site since I have restarted the project multiple times. It features a lot of commented code which needs to be built into the newest version. That is why currently many key features are missing which stops it from working well.
+## Skill level
+It beats stockfish lvl 4 on lichess but I don't know if that's something to be proud of :/
 
 ## Usage
 
@@ -84,7 +85,13 @@ about both historic and leading-edge approaches.
 
 The bitboard logic I used was really well explained in [this Youtube series by Logic Crazy Chess](https://www.youtube.com/watch?v=V_2-LOvr5E8&list=PLQV5mozTHmacMeRzJCW_8K3qw2miYqd0c).
 
+## TODO: Unfinished work
+* Quantize NNUE model such that it uses integer arithmetic and SIMD instead of lousy float32
+* Do profiling to get performance up (I'm sure there are a lot of redundant copies in the search algorithm)
+* Find better dataset with less chaotic positions for better model (loss on current model is really high, but performs alright)
+
 ## Future ideas
 * Support for all UCI search parameters
+* [Aspiration windows](https://www.chessprogramming.org/Aspiration_Windows)
 * [Parallel Search](https://www.chessprogramming.org/Lazy_SMP)
 * [Magic Boards](https://www.chessprogramming.org/Magic_Bitboards)

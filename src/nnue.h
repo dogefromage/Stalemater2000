@@ -11,6 +11,9 @@ const int INPUT_SIZE = 768;
 const int HL_SIZE = 1024;
 const int NUM_BUCKETS = 8;
 
+/**
+ * Will be linked to asm file of weights created by python script
+ */
 extern const float nnue_accumulator_weights[INPUT_SIZE][HL_SIZE];
 extern const float nnue_accumulator_biases[HL_SIZE];
 extern const float nnue_output_weights[NUM_BUCKETS][2 * HL_SIZE];
